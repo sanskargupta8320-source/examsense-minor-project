@@ -172,6 +172,7 @@ class Topic(Base):
             "priority_breakdown": self.get_breakdown_dict(),
             "has_notes_source": bool(self.has_notes_source),
             "questions_count": len(self.questions) if self.questions else self.frequency,
+            "questions": [q.to_dict() for q in self.questions] if self.questions else [],
         }
 
 

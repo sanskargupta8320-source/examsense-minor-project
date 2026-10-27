@@ -18,10 +18,18 @@
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
+  <!-- KaTeX for live textbook-quality mathematical formulas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
   <!-- Stylesheet -->
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="theme-light">
+
+  <!-- Hardware-Accelerated 3D Interactive Background Canvas -->
+  <canvas id="bg3dCanvas" class="bg-3d-canvas"></canvas>
 
   <!-- ========================================================================= -->
   <!-- TOP AI UNAVAILABLE WARNING BANNER                                         -->
@@ -249,6 +257,10 @@
           <button class="btn btn-success" id="btnDownloadPDF" onclick="openCustomizePdfModal()">
             <span class="icon">📥</span>
             <span id="dashDownloadPdfBtnText">Download Study Plan (PDF)</span>
+          </button>
+          <button class="btn btn-primary-gradient" id="btnDownloadRichPDF" onclick="exportRichMathJaxTextbookPdf()" title="Render complete study guide with full KaTeX/MathJax equations and export high-resolution PDF">
+            <span class="icon">✨</span>
+            <span id="dashDownloadRichPdfBtnText">Download Rich PDF (Textbook Print)</span>
           </button>
           <button class="btn btn-outline" id="btnAddPapers" onclick="openUploadModal()">
             <span class="icon">+</span>
@@ -954,6 +966,79 @@
       </div>
     </div>
   </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 8: TOPIC STUDY DRAWER & ANSWER EXPLORER                             -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop drawer-backdrop" id="topicDrawerModal" style="display: none;">
+    <div class="modal-dialog modal-dialog-drawer glass-card-3d">
+      <div class="modal-header">
+        <div>
+          <div class="modal-pre-title" id="drawerPreTitle">Interactive Topic Explorer</div>
+          <h3 class="modal-title" id="drawerTopicTitle">Topic Name</h3>
+          <div class="drawer-badges" id="drawerBadges">
+            <!-- Badges rendered via JS -->
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeTopicDrawer()">&times;</button>
+      </div>
+
+      <div class="modal-body drawer-scroll-body">
+        <!-- Search & Filter Bar -->
+        <div class="drawer-search-bar">
+          <input type="text" id="drawerSearchInput" class="form-control" placeholder="Search questions in this topic..." oninput="filterDrawerQuestions()">
+          <select id="drawerMarksFilter" class="form-control form-control-sm" onchange="filterDrawerQuestions()" style="max-width: 150px;">
+            <option value="">All Marks</option>
+            <option value="high">High Marks (&ge; 7M)</option>
+            <option value="short">Short (&le; 5M)</option>
+          </select>
+        </div>
+
+        <!-- Concept Deep-Dive Overview -->
+        <div class="drawer-section">
+          <h4 class="drawer-section-title">📌 Concept Deep-Dive & Key Principles</h4>
+          <div class="drawer-concept-box" id="drawerConceptBox">
+            <div class="spinner-sm"></div> Loading concept overview...
+          </div>
+        </div>
+
+        <!-- Key Formulas / Cheat-Sheet Box -->
+        <div class="drawer-section">
+          <h4 class="drawer-section-title">📐 Key Formulas, Theorems & Equations</h4>
+          <div class="drawer-formulas-box" id="drawerFormulasBox">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Important Exam Tips Box -->
+        <div class="drawer-section">
+          <h4 class="drawer-section-title">💡 Examiner Checking Points & Full-Marks Tips</h4>
+          <div class="drawer-tips-box" id="drawerTipsBox">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Previous Year Questions (PYQs) & Step-by-Step Solutions -->
+        <div class="drawer-section">
+          <div class="drawer-section-header">
+            <h4 class="drawer-section-title">📝 Previous Year Questions (PYQs) & Model Answers</h4>
+            <span class="badge-count" id="drawerQuestionCount">0 Questions</span>
+          </div>
+          <div class="drawer-questions-list" id="drawerQuestionsList">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeTopicDrawer()">Close Explorer</button>
+        <button type="button" class="btn btn-primary" onclick="openTopicNotesFromDrawer()">Read Complete Notes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden / Printable Rich Textbook Document Container -->
+  <div id="richTextbookPrintContainer" class="rich-textbook-print-container" style="display: none;"></div>
 
   <!-- ========================================================================= -->
   <!-- FOOTER                                                                    -->

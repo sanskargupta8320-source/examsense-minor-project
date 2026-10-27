@@ -578,10 +578,145 @@ def run_tests():
     print("  -> Verified extract_questions_from_paper reuses cache for identical content.")
     print("  PASSED ✅")
 
+    # -------------------------------------------------------------
+    # Test 26: Weighted Priority Formula & Percentile Calibration
+    # -------------------------------------------------------------
+    print("\n[Test 26] Weighted Priority Formula & Percentile Calibration...")
+    from app.services.priority_service import calculate_topic_priority, calibrate_priorities_percentile
+    # Test formula: (0.45 * freq_ratio) + (0.35 * marks_ratio) + (0.20 * recency)
+    result = calculate_topic_priority(
+        frequency=3,
+        total_marks=21,
+        years_asked=[2022, 2023],
+        all_subject_years=[2021, 2022, 2023],
+        total_subject_questions=10,
+        total_subject_marks=70,
+    )
+    score = result["priority_score"]
+    level = result["priority_level"]
+    print(f"  -> Calculated Score: {score}, Level: {level}")
+    assert score > 0, "Score should be positive"
+
+    # Single-paper scenario where raw scores might fall below absolute thresholds
+    dummy_topics = [
+        {"name": "Topic A", "priority_score": 15, "priority_level": "Low Priority"},
+        {"name": "Topic B", "priority_score": 10, "priority_level": "Low Priority"},
+        {"name": "Topic C", "priority_score": 5, "priority_level": "Low Priority"},
+    ]
+    calibrated = calibrate_priorities_percentile(dummy_topics)
+    assert any(t["priority_level"] in ["High", "High Priority"] for t in calibrated), "Percentile calibration must guarantee High Priority presence"
+    assert calibrated[0]["priority_level"] in ["High", "High Priority"]
+    print(f"  -> Calibrated {len(calibrated)} topics: Top topic promoted to '{calibrated[0]['priority_level']}' (Score: {calibrated[0]['priority_score']})")
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 27: Multi-Key Rotation Pool & Fallbacks
+    # -------------------------------------------------------------
+    print("\n[Test 27] Multi-Key Rotation Pool...")
+    from app.services.ai_service import load_gemini_api_keys, rotate_to_next_key
+    with patch.dict(os.environ, {"GEMINI_API_KEYS": "test_key_1, test_key_2, test_key_3", "GEMINI_API_KEY": ""}):
+        keys = load_gemini_api_keys()
+        assert len(keys) == 3, f"Expected 3 keys parsed, got {len(keys)}"
+        assert keys[0] == "test_key_1"
+        assert keys[2] == "test_key_3"
+        print(f"  -> Successfully parsed {len(keys)} API keys from GEMINI_API_KEYS pool.")
+
+        # Test rotation logic
+        import app.services.ai_service as ai_srv
+        orig_pool = ai_srv.GEMINI_API_KEYS_POOL
+        orig_idx = ai_srv.CURRENT_KEY_INDEX
+        try:
+            ai_srv.GEMINI_API_KEYS_POOL = keys
+            ai_srv.CURRENT_KEY_INDEX = 0
+            with patch("app.services.ai_service.init_gemini_client_for_key", return_value=True):
+                rotated = rotate_to_next_key()
+                assert rotated is True
+                assert ai_srv.GEMINI_API_KEY == "test_key_2"
+                print(f"  -> Rotated to next key: {ai_srv.GEMINI_API_KEY}")
+        finally:
+            ai_srv.GEMINI_API_KEYS_POOL = orig_pool
+            ai_srv.CURRENT_KEY_INDEX = orig_idx
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 28: Topic Deep-Dive and Question Solution Endpoints
+    # -------------------------------------------------------------
+    print(f"\n[Test 28] Topic Deep-Dive & Solution Endpoints (/api/topics/{topic_id}/deep-dive)...")
+    res_dd = client.get(f"/api/topics/{topic_id}/deep-dive?language=en")
+    assert res_dd.status_code == 200, f"Deep-dive failed: {res_dd.text}"
+    dd_data = res_dd.json()
+    assert "detailed_explanation" in dd_data
+    assert "key_formulas_or_points" in dd_data
+    assert "important_exam_tips" in dd_data
+    assert len(dd_data["key_formulas_or_points"]) > 0
+    print(f"  -> Deep Dive returned: {len(dd_data['detailed_explanation'])} chars explanation, {len(dd_data['key_formulas_or_points'])} formulas/points.")
+
+    # Get a question ID from college subject
+    db_session = SessionLocal()
+    sample_q = db_session.query(Question).filter(Question.topic_id == topic_id).first()
+    db_session.close()
+
+    if sample_q:
+        print(f"  -> Testing Solution endpoint for Question ID {sample_q.id}...")
+        res_sol = client.post(f"/api/questions/{sample_q.id}/solution?language=en")
+        assert res_sol.status_code == 200, f"Question solution failed: {res_sol.text}"
+        sol_data = res_sol.json()
+        assert "model_answer" in sol_data
+        assert len(sol_data["model_answer"]) > 50
+        print(f"  -> Model Answer generated: {len(sol_data['model_answer'])} chars")
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 29: Semantic Stem Overlap & Repeated Pattern Matching
+    # -------------------------------------------------------------
+    print("\n[Test 29] Semantic Concept Stem Overlap & Repeated Pattern Matching...")
+    from app.services.analysis_service import extract_concept_stem, find_repeated_questions
+    stem1 = extract_concept_stem("Explain the working principle and construction of a single phase transformer.")
+    stem2 = extract_concept_stem("Describe single-phase transformer construction and operation.")
+    print(f"  -> Stem 1: '{stem1}'")
+    print(f"  -> Stem 2: '{stem2}'")
+    assert "transformer" in stem1 and "transformer" in stem2
+    assert "construct" in stem1 and "construct" in stem2
+
+    test_qs = [
+        {"id": 1, "question_text": "Derive the torque equation of DC motor. (7 Marks)", "marks": 7, "year": 2021, "concept_key": "dc_motor_torque"},
+        {"id": 2, "question_text": "Obtain an expression for the torque developed in a DC motor. (7 Marks)", "marks": 7, "year": 2022, "concept_key": "dc_motor_torque"},
+        {"id": 3, "question_text": "What is Kirchhoff's Current Law? (3 Marks)", "marks": 3, "year": 2023, "concept_key": "kcl_law"},
+    ]
+    rep_groups = find_repeated_questions(test_qs, similarity_threshold=0.55)
+    assert len(rep_groups) >= 1, "Expected DC motor questions to be grouped as repeated"
+    print(f"  -> Successfully detected repeated pattern with similarity {rep_groups[0]['similarity_score']}%: '{rep_groups[0]['canonical_question']}'")
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 30: Untruncated LaTeX/Math Parser & Master PDF Generation
+    # -------------------------------------------------------------
+    print("\n[Test 30] Untruncated LaTeX/Math Parser & Master PDF Generation...")
+    from app.services.pdf_export_service import clean_and_format_math_for_pdf
+    raw_math = r"Calculate \int_{0}^{\pi} \sin(\omega t) dt and show that \frac{a}{b} \leq \sqrt{x^2 + y^2}."
+    formatted_math = clean_and_format_math_for_pdf(raw_math)
+    print(f"  -> Cleaned math for ReportLab: '{formatted_math}'")
+    assert "∫" in formatted_math or "integral" in formatted_math
+    assert "π" in formatted_math
+    assert "ω" in formatted_math
+    assert "≤" in formatted_math
+    assert "√" in formatted_math
+    assert "<super>2</super>" in formatted_math
+
+    # Verify the exported study plan contains multi-page content with deep-dives
+    res_master_pdf = client.get(f"/api/subjects/{college_id}/export-pdf?language=en")
+    assert res_master_pdf.status_code == 200
+    assert res_master_pdf.headers.get("content-type") == "application/pdf"
+    master_pdf_bytes = res_master_pdf.content
+    assert len(master_pdf_bytes) > 25000, f"Expected comprehensive multi-page PDF (>25KB), got {len(master_pdf_bytes)} bytes"
+    print(f"  -> Generated comprehensive Master Study & Solution Guide PDF: {len(master_pdf_bytes):,} bytes")
+    print("  PASSED ✅")
+
     print("\n" + "=" * 65)
-    print("🎉 ALL 25/25 COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS! 💯")
+    print("🎉 ALL 30/30 COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS! 💯")
     print("=" * 65)
 
 
 if __name__ == "__main__":
     run_tests()
+

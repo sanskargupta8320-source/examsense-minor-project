@@ -2440,3 +2440,366 @@ body.theme-dark .btn-outline-outline:hover {
   }
 }
 
+/* ==========================================================================
+   3D Hardware-Accelerated Interactive Background Canvas
+   ========================================================================== */
+
+.bg-3d-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.75;
+  transition: opacity 0.5s ease;
+}
+
+body.theme-dark .bg-3d-canvas {
+  opacity: 0.95;
+}
+
+/* ==========================================================================
+   3D Glassmorphism & Hover Perspective Tilt
+   ========================================================================== */
+
+.glass-card-3d {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  transform-style: preserve-3d;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+}
+
+body.theme-dark .glass-card-3d {
+  background: rgba(17, 24, 39, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 36px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(99, 102, 241, 0.12);
+}
+
+.glass-card-3d:hover {
+  transform: translateY(-3px) perspective(1000px) rotateX(1deg) rotateY(-1deg);
+  box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.16), 0 0 20px rgba(124, 58, 237, 0.12);
+}
+
+.kpi-card, .chart-card, .table-card, .checklist-card, .notes-card {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
+  color: #ffffff !important;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  transition: var(--transition);
+}
+
+.btn-primary-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+}
+
+/* ==========================================================================
+   Topic Study Drawer & Answer Explorer Modal
+   ========================================================================== */
+
+.modal-dialog-drawer {
+  max-width: 800px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+}
+
+.drawer-scroll-body {
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.drawer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.drawer-search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.drawer-section {
+  margin-bottom: 22px;
+}
+
+.drawer-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.drawer-section-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.drawer-concept-box {
+  padding: 14px 16px;
+  background: var(--bg-main);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--primary);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.drawer-formulas-box {
+  padding: 14px 16px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.6;
+}
+
+body.theme-dark .drawer-formulas-box {
+  background: rgba(22, 101, 52, 0.18);
+  border-color: rgba(134, 239, 172, 0.35);
+  color: #86efac;
+}
+
+.drawer-tips-box {
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+body.theme-dark .drawer-tips-box {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(253, 230, 138, 0.35);
+  color: #fde68a;
+}
+
+.drawer-q-card {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.drawer-q-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08);
+}
+
+.drawer-q-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drawer-q-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.drawer-solution-box {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid #f59e0b;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+body.theme-dark .drawer-solution-box {
+  background: #1e293b;
+  border-color: #334155;
+  border-left-color: #f59e0b;
+}
+
+.btn-action-drawer {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+body.theme-dark .btn-action-drawer {
+  background: rgba(79, 70, 229, 0.15);
+  color: #818cf8;
+}
+
+.btn-action-drawer:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.badge-explore {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+body.theme-dark .badge-explore {
+  background: rgba(79, 70, 229, 0.2);
+  color: #a5b4fc;
+}
+
+/* ==========================================================================
+   Rich MathJax / KaTeX Textbook Print View & @media print
+   ========================================================================== */
+
+.rich-textbook-print-container {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  .navbar, .bg-3d-canvas, .app-footer, .global-banner, .modal-backdrop,
+  .subject-actions-col, #toastContainer, .btn, #landingView, .charts-grid,
+  .subject-header-row, .checklist-card, .table-card {
+    display: none !important;
+  }
+
+  .rich-textbook-print-container {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .textbook-header-banner {
+    border-bottom: 2pt solid #4338ca;
+    padding-bottom: 12pt;
+    margin-bottom: 16pt;
+  }
+
+  .textbook-title {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #1e1b4b;
+    margin-bottom: 4pt;
+  }
+
+  .textbook-subtitle {
+    font-size: 11pt;
+    color: #4b5563;
+    font-style: italic;
+    margin-bottom: 8pt;
+  }
+
+  .textbook-meta-grid {
+    display: table;
+    width: 100%;
+    margin-top: 6pt;
+    font-size: 10pt;
+    border: 0.5pt solid #d1d5db;
+    border-collapse: collapse;
+  }
+
+  .textbook-meta-grid td, .textbook-meta-grid th {
+    border: 0.5pt solid #d1d5db;
+    padding: 4pt 8pt;
+  }
+
+  .textbook-section-title {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #1e1b4b;
+    border-bottom: 1pt solid #6366f1;
+    padding-bottom: 4pt;
+    margin-top: 18pt;
+    margin-bottom: 10pt;
+    page-break-after: avoid;
+  }
+
+  .textbook-topic-card {
+    border: 0.75pt solid #e5e7eb;
+    border-left: 3pt solid #4338ca;
+    padding: 10pt 12pt;
+    margin-bottom: 12pt;
+    page-break-inside: avoid;
+    background: #fafafa;
+  }
+
+  .textbook-formula-box {
+    border: 0.75pt solid #86efac;
+    background: #f0fdf4;
+    padding: 8pt 10pt;
+    margin-top: 6pt;
+    margin-bottom: 6pt;
+    page-break-inside: avoid;
+  }
+
+  .textbook-solution-card {
+    border: 0.75pt solid #fcd34d;
+    background: #fffbeb;
+    padding: 8pt 10pt;
+    margin-top: 6pt;
+    margin-bottom: 8pt;
+    page-break-inside: avoid;
+  }
+
+  .textbook-question-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    margin-top: 8pt;
+  }
+
+  .textbook-question-table th, .textbook-question-table td {
+    border: 0.5pt solid #d1d5db;
+    padding: 5pt 8pt;
+    vertical-align: top;
+  }
+
+  .textbook-question-table th {
+    background-color: #f3f4f6;
+    font-weight: bold;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+  }
+}
+

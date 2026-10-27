@@ -3,7 +3,10 @@ import json
 import logging
 from typing import List, Dict, Any, Tuple
 from collections import defaultdict
-from app.services.priority_service import calculate_topic_priority
+from app.services.priority_service import (
+    calculate_topic_priority,
+    calibrate_priorities_percentile,
+)
 
 logger = logging.getLogger("examsense.analysis")
 
@@ -43,6 +46,20 @@ def extract_keywords(text: str) -> set:
     return set(w for w in words if w not in STOP_WORDS)
 
 
+def extract_concept_stem(text: str) -> str:
+    """Extracts core concept or technical phrase from question after removing question verbs and noise."""
+    cleaned = clean_question_text_for_nlp(text)
+    # Remove instructional/action verbs common to exam questions
+    stem = re.sub(
+        r"\b(find|calculate|evaluate|solve|determine|derive|prove|show that|state and prove|explain|discuss|define|describe|what is|write down|write a program to|implement)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    tokens = [w for w in re.findall(r"\b[a-zA-Z0-9_]{3,}\b", stem) if w not in STOP_WORDS]
+    return " ".join(tokens)
+
+
 def compute_keyword_similarity(text1: str, text2: str) -> float:
     """
     Computes semantic similarity based on Szymkiewicz-Simpson overlap coefficient
@@ -60,13 +77,11 @@ def compute_keyword_similarity(text1: str, text2: str) -> float:
 
 
 def find_repeated_questions(
-    questions: List[Dict[str, Any]], similarity_threshold: float = 0.48
+    questions: List[Dict[str, Any]], similarity_threshold: float = 0.45
 ) -> List[Dict[str, Any]]:
     """
     Detects repeated or near-duplicate questions across different exam years using
-    TF-IDF Vectorization and Cosine Similarity (scikit-learn).
-    
-    If scikit-learn is unavailable, falls back to tokenized keyword overlap similarity.
+    TF-IDF Vectorization, concept key matching, and semantic stem overlap.
     
     Returns:
         List of repeated question groups with canonical text, years, and similarity scores.
@@ -75,6 +90,7 @@ def find_repeated_questions(
         return []
 
     cleaned_texts = [clean_question_text_for_nlp(q["question_text"]) for q in questions]
+    concept_stems = [extract_concept_stem(q["question_text"]) for q in questions]
 
     # Compute similarity matrix
     n = len(questions)
@@ -107,14 +123,39 @@ def find_repeated_questions(
                 else:
                     sim_matrix[i][j] = compute_keyword_similarity(cleaned_texts[i], cleaned_texts[j])
 
-    # If questions share identical topic and strong keywords, boost similarity
+    # Semantic concept clustering boost:
+    # 1. AI concept_key cluster match (if provided during extraction)
+    # 2. Concept stem token overlap (captures questions asking the same concept in different words)
+    # 3. Same topic boost
     for i in range(n):
         for j in range(i + 1, n):
+            ck_i = str(questions[i].get("concept_key") or "").strip().lower()
+            ck_j = str(questions[j].get("concept_key") or "").strip().lower()
+            
+            # Direct AI concept cluster match
+            if ck_i and ck_j and (ck_i == ck_j or ck_i in ck_j or ck_j in ck_i) and len(ck_i) >= 4:
+                sim_matrix[i][j] = max(sim_matrix[i][j], 0.72)
+                sim_matrix[j][i] = sim_matrix[i][j]
+                continue
+
+            # Concept stem overlap
+            stem_i = extract_keywords(concept_stems[i])
+            stem_j = extract_keywords(concept_stems[j])
+            if stem_i and stem_j:
+                stem_inter = len(stem_i.intersection(stem_j))
+                if stem_inter >= 2:
+                    stem_overlap = stem_inter / min(len(stem_i), len(stem_j))
+                    if stem_overlap >= 0.5:
+                        sim_matrix[i][j] = max(sim_matrix[i][j], 0.65)
+                        sim_matrix[j][i] = sim_matrix[i][j]
+                        continue
+
+            # Shared unit/topic boost
             topic_i = questions[i].get("unit_or_topic_guess")
             topic_j = questions[j].get("unit_or_topic_guess")
             if topic_i and topic_j and topic_i == topic_j:
-                if sim_matrix[i][j] >= 0.35:
-                    sim_matrix[i][j] = min(0.98, sim_matrix[i][j] + 0.15)
+                if sim_matrix[i][j] >= 0.30:
+                    sim_matrix[i][j] = min(0.98, sim_matrix[i][j] + 0.20)
                     sim_matrix[j][i] = sim_matrix[i][j]
 
     # Graph adjacency / Connected components to cluster duplicate questions
@@ -199,6 +240,9 @@ def aggregate_topics_and_priorities(
     - Priority score and level
     - Formula breakdown
     
+    Dynamically calibrates priorities with percentile thresholds so High Priority
+    Topics is never 0 when questions exist.
+    
     Returns:
         List of topic dicts sorted by priority_score descending.
     """
@@ -234,6 +278,8 @@ def aggregate_topics_and_priorities(
             years_asked=years_list,
             all_subject_years=all_subject_years,
             avg_marks_per_question=avg_marks,
+            total_subject_questions=total_q_count,
+            total_subject_marks=total_q_marks,
         )
 
         aggregated_topics.append({
@@ -247,6 +293,9 @@ def aggregate_topics_and_priorities(
             "priority_breakdown": p_result["breakdown"],
             "questions": data["questions"],
         })
+
+    # Calibrate priorities dynamically so that High Priority Topics is never 0
+    aggregated_topics = calibrate_priorities_percentile(aggregated_topics)
 
     # Sort topics by priority_score descending
     aggregated_topics.sort(key=lambda t: t["priority_score"], reverse=True)

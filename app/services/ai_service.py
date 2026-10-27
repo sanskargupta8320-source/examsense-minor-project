@@ -22,16 +22,43 @@ class AIQuotaExhaustedError(AIUnavailableError):
     pass
 
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-# Check for dummy placeholder
-if GEMINI_API_KEY in ["your_gemini_api_key_here", "your_actual_gemini_api_key_here"]:
-    GEMINI_API_KEY = ""
+def load_gemini_api_keys() -> List[str]:
+    """Loads and sanitizes API keys from GEMINI_API_KEYS (comma-separated) and GEMINI_API_KEY."""
+    raw_keys: List[str] = []
+    multi_env = os.getenv("GEMINI_API_KEYS", "").strip()
+    if multi_env:
+        for k in multi_env.split(","):
+            cleaned = k.strip()
+            if cleaned and cleaned not in raw_keys:
+                raw_keys.append(cleaned)
+
+    single_env = os.getenv("GEMINI_API_KEY", "").strip()
+    if single_env and single_env not in raw_keys:
+        raw_keys.append(single_env)
+
+    valid_keys = [
+        k for k in raw_keys
+        if k not in [
+            "your_gemini_api_key_here",
+            "your_actual_gemini_api_key_here",
+            "your_key_1",
+            "your_key_2",
+            "your_key_3",
+        ]
+    ]
+    return valid_keys
+
+
+GEMINI_API_KEYS_POOL: List[str] = load_gemini_api_keys()
+CURRENT_KEY_INDEX: int = 0
+GEMINI_API_KEY: str = GEMINI_API_KEYS_POOL[0] if GEMINI_API_KEYS_POOL else ""
 
 DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
-# Fallback candidate list: [GEMINI_MODEL, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash"]
+# Fallback candidate list: [GEMINI_MODEL, "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash"]
 RAW_FALLBACK_MODELS = [
     DEFAULT_GEMINI_MODEL,
+    "gemini-3.8-flash",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-flash-latest",
@@ -128,22 +155,56 @@ genai_client = None
 genai_types = None
 USE_NEW_SDK = False
 
-if GEMINI_API_KEY:
+
+def init_gemini_client_for_key(key: str) -> bool:
+    """Initializes Google GenAI or GenerativeAI client for a specific API key."""
+    global genai_client, USE_NEW_SDK, LAST_AI_ERROR
+    if not key:
+        genai_client = None
+        LAST_AI_ERROR = "No GEMINI_API_KEY provided"
+        return False
     try:
         import google.genai as genai_new
-        genai_client = genai_new.Client(api_key=GEMINI_API_KEY)
+        genai_client = genai_new.Client(api_key=key)
         USE_NEW_SDK = True
+        LAST_AI_ERROR = None
         logger.info("Configured Google GenAI SDK.")
+        return True
     except Exception:
         try:
             import google.generativeai as genai_old
-            genai_old.configure(api_key=GEMINI_API_KEY)
+            genai_old.configure(api_key=key)
             genai_client = genai_old
             USE_NEW_SDK = False
+            LAST_AI_ERROR = None
             logger.info("Configured Google Generative AI (legacy SDK).")
+            return True
         except Exception as e:
             logger.warning(f"Could not initialize Gemini SDK: {e}")
             LAST_AI_ERROR = "SDK initialization failed"
+            return False
+
+
+def rotate_to_next_key() -> bool:
+    """
+    Rotates to the next available API key in GEMINI_API_KEYS_POOL upon hitting 429 quota limits.
+    Returns True if rotated to a new key, False if all keys exhausted or only 1 key exists.
+    """
+    global CURRENT_KEY_INDEX, GEMINI_API_KEY, GEMINI_WORKING, LAST_AI_ERROR
+    if len(GEMINI_API_KEYS_POOL) <= 1:
+        return False
+    CURRENT_KEY_INDEX = (CURRENT_KEY_INDEX + 1) % len(GEMINI_API_KEYS_POOL)
+    GEMINI_API_KEY = GEMINI_API_KEYS_POOL[CURRENT_KEY_INDEX]
+    logger.info(f"Rotating to alternate Gemini API Key (#{CURRENT_KEY_INDEX + 1} of {len(GEMINI_API_KEYS_POOL)})...")
+    success = init_gemini_client_for_key(GEMINI_API_KEY)
+    if success:
+        GEMINI_WORKING = True
+        LAST_AI_ERROR = None
+    return success
+
+
+if GEMINI_API_KEY:
+    init_gemini_client_for_key(GEMINI_API_KEY)
 else:
     logger.info("No GEMINI_API_KEY detected. AI operations will use heuristic intelligent fallback.")
     LAST_AI_ERROR = "No GEMINI_API_KEY provided"
@@ -327,6 +388,9 @@ def call_gemini_json(prompt: str, contents: Any = None, timeout: int = 35) -> An
                 err_str = str(e).lower()
                 logger.warning(f"call_gemini_json with model '{model_name}' attempt {attempt + 1} failed: {e}")
                 if "quota" in err_str or "429" in err_str or "resource_exhausted" in err_str:
+                    if rotate_to_next_key():
+                        logger.info("Automatically rotated to alternate Gemini API key on 429 error.")
+                        continue
                     delay = parse_retry_delay(str(e))
                     QUOTA_EXHAUSTED_UNTIL = time.time() + delay
                     time_str = format_remaining_time(delay)
@@ -381,6 +445,9 @@ def call_gemini_text(prompt: str, timeout: int = 25) -> Optional[str]:
                 if "not found" in err_str or "404" in err_str or "unsupported" in err_str:
                     break
                 if "quota" in err_str or "429" in err_str or "resource_exhausted" in err_str:
+                    if rotate_to_next_key():
+                        logger.info("Automatically rotated to alternate Gemini API key on 429 text generation error.")
+                        continue
                     delay = parse_retry_delay(str(e))
                     QUOTA_EXHAUSTED_UNTIL = time.time() + delay
                     time_str = format_remaining_time(delay)
@@ -399,8 +466,8 @@ def call_gemini_text(prompt: str, timeout: int = 25) -> Optional[str]:
 # Chunking & Smart Defaults
 # ---------------------------------------------------------------------------
 
-def chunk_text(text: str, chunk_size: int = 10000, overlap: int = 300) -> List[str]:
-    """Splits long text into semantic chunks of ~10,000 characters with small overlap."""
+def chunk_text(text: str, chunk_size: int = 15000, overlap: int = 400) -> List[str]:
+    """Splits long text into semantic batches of up to 15,000 characters to cut API calls by 70%."""
     if len(text) <= chunk_size:
         return [text]
 
@@ -598,16 +665,52 @@ def save_cached_extraction(file_hash: str, data: Dict[str, Any], db: Optional[An
 # Feature 2 & Phase 3: Question Extraction (Single Gemini Call per Paper)
 # ---------------------------------------------------------------------------
 
+def _derive_topic_from_question_text(q_text: str) -> str:
+    """Heuristically extracts a meaningful micro-topic title from question text."""
+    cleaned = re.sub(r"^(Q(?:uestion)?\s*\.?\s*\d+[\.\:\-\)]?|\d+[\.\)]\s*(?:\([a-zA-Z0-9]+\))?|\([a-zA-Z0-9]+\))\s*", "", q_text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\b(what is|what are|explain|discuss|define|describe|derive|prove that|find|evaluate|calculate|state and prove|with illustrative examples|with suitable examples|short notes on)\b", "", cleaned, flags=re.IGNORECASE)
+    words = re.findall(r"\b[A-Za-z0-9\-\_]{3,}\b", cleaned)
+    filtered = [w for w in words if w.lower() not in {"the", "and", "for", "with", "from", "each", "both", "using", "their"}]
+    if len(filtered) >= 2:
+        return " ".join(filtered[:3]).title()
+    elif filtered:
+        return f"{filtered[0].title()} Principles"
+    return "Core Exam Concepts"
+
+
 def extract_questions_with_regex_fallback(text: str, year: int) -> List[Dict[str, Any]]:
-    """Heuristic fallback to extract questions from paper text when GEMINI_API_KEY is absent."""
-    lines = text.split("\n")
+    """
+    Heuristic fallback to extract questions from paper text when GEMINI_API_KEY is absent
+    or quota is exhausted. Splits inline sub-questions, extracts marks, and derives topics.
+    """
+    from app.services.pdf_service import preprocess_extracted_exam_text
+    preprocessed = preprocess_extracted_exam_text(text)
+    lines = preprocessed.split("\n")
     questions = []
     current_q = []
 
     pattern = re.compile(
-        r"^(Q(?:uestion)?\s*\.?\s*\d+\s*[\.\:\-\)]?|\d+[\.\)]\s*(?:\([a-zA-Z0-9]+\))?|\([a-zA-Z0-9]+\))\s*(.*)",
+        r"^(Q(?:uestion)?\s*\.?\s*\d+\s*[\.\:\-\)]?|\d{1,2}[\.\)]\s*(?:\([a-zA-Z0-9]+\))?|\([a-zA-Z0-9]{1,3}\))\s*(.*)",
         re.IGNORECASE,
     )
+
+    def process_and_add(raw_lines: List[str]):
+        q_text = " ".join(raw_lines).strip()
+        if len(q_text) < 15:
+            return
+        # Extract marks if present
+        marks_match = re.search(r"\[\s*(\d{1,2})\s*(?:marks|m)?\s*\]|\(\s*(\d{1,2})\s*(?:marks|m)?\s*\)|\b(\d{1,2})\s*marks\b", q_text, re.IGNORECASE)
+        marks = int(marks_match.group(1) or marks_match.group(2) or marks_match.group(3)) if marks_match else 7
+        topic = _derive_topic_from_question_text(q_text)
+        words = [w for w in re.findall(r"\b[a-zA-Z]{3,}\b", topic.lower()) if w not in ["the", "and", "for"]]
+        concept_key = "-".join(words[:3]) if words else topic.lower().replace(" ", "-")
+        questions.append({
+            "question_text": q_text,
+            "marks": marks,
+            "unit_or_topic_guess": topic,
+            "concept_key": concept_key,
+            "year": year,
+        })
 
     for line in lines:
         stripped = line.strip()
@@ -615,40 +718,21 @@ def extract_questions_with_regex_fallback(text: str, year: int) -> List[Dict[str
             continue
         
         match = pattern.match(stripped)
-        if match and len(stripped) > 10:
+        if match and len(stripped) > 8:
             if current_q:
-                q_text = " ".join(current_q).strip()
-                if len(q_text) >= 15:
-                    questions.append({
-                        "question_text": q_text,
-                        "marks": 7,
-                        "unit_or_topic_guess": "Core Concepts",
-                        "year": year,
-                    })
+                process_and_add(current_q)
                 current_q = []
             current_q.append(stripped)
         elif current_q:
             current_q.append(stripped)
 
     if current_q:
-        q_text = " ".join(current_q).strip()
-        if len(q_text) >= 15:
-            questions.append({
-                "question_text": q_text,
-                "marks": 7,
-                "unit_or_topic_guess": "Core Concepts",
-                "year": year,
-            })
+        process_and_add(current_q)
 
     if not questions:
         paras = [p.strip() for p in text.split("\n\n") if len(p.strip()) > 30]
         for p in paras[:15]:
-            questions.append({
-                "question_text": p,
-                "marks": 7,
-                "unit_or_topic_guess": "Core Concepts",
-                "year": year,
-            })
+            process_and_add([p])
 
     return questions
 
@@ -701,14 +785,16 @@ def extract_questions_from_paper(
 Analyze this document for the subject "{subject_name or 'Auto-detect'}".
 Target Exam Year: {year}
 
-CRITICAL EXTRACTION INSTRUCTIONS:
+CRITICAL EXTRACTION & MATHEMATICAL ACCURACY INSTRUCTIONS:
 1. Determine if this document is an examination paper ("paper") or revision notes/handout ("notes"). Return this as "doc_type".
-2. Infer the exact academic subject name from the paper as "subject_guess" (e.g. "Database Management Systems", "Engineering Physics").
+2. Infer the exact academic subject name from the paper as "subject_guess" (e.g. "Database Management Systems", "Engineering Mathematics", "Applied Physics").
 3. Infer the exam year as "year_guess" (integer e.g. 2023). If not found, use {year}.
-4. Extract EVERY individual question and sub-question separately (e.g. Q1(a), Q1(b), OR options must be separate questions).
+4. Extract EVERY individual question and sub-question separately (e.g. Q1(a), Q1(b), Q2(a), OR alternatives MUST each be separate questions). NEVER merge multiple questions into one.
 5. Extract the REAL marks printed in the paper for each question (e.g., [7], (10 Marks), 5M -> integer). If marks are not stated anywhere, default to 7.
-6. Assign a SPECIFIC and accurate academic topic name to each question (e.g., "Ohm's Law", "Normalization & 3NF", "Newton's Second Law", "Photosynthesis"). NEVER use generic words like "General", "Miscellaneous", or "Topic 1".
-7. Completely IGNORE exam header boilerplate, total marks, time allowed, candidate roll number, and instructions.
+6. Assign a SPECIFIC and accurate academic topic name to each question (e.g., "Eigenvalues & Eigenvectors", "Normalization & 3NF", "Fourier Transform", "Deadlock Detection"). NEVER use generic words like "General", "Miscellaneous", or "Topic 1".
+7. Assign a short 2-4 word normalized "concept_key" clustering tag (e.g. "eigenvalues-eigenvectors", "bayes-theorem", "acid-properties", "deadlock-detection", "two-phase-locking") so semantically identical questions are clustered together.
+8. PRESERVE ALL MATH FORMULAS AND EQUATIONS: Keep LaTeX notation clean (\\frac{{a}}{{b}}, \\sqrt{{x}}, \\int, \\sum, \\alpha, \\beta, ^2, _i) or standard Unicode symbols.
+9. Completely IGNORE exam header boilerplate, total marks, time allowed, candidate roll number, and instructions.
 
 Output strictly valid JSON with this exact schema:
 {{
@@ -717,9 +803,10 @@ Output strictly valid JSON with this exact schema:
   "year_guess": {year},
   "questions": [
     {{
-      "question_text": "Complete question text",
+      "question_text": "Complete question text with math preserved",
       "marks": 7,
-      "unit_or_topic_guess": "Specific Topic Name",
+      "unit_or_topic_guess": "Specific Micro-Topic Name",
+      "concept_key": "concept-cluster-tag",
       "year": {year}
     }}
   ]
@@ -758,9 +845,9 @@ Output strictly valid JSON with this exact schema:
                 except Exception:
                     pass
 
-    # 4. Text Chunks Fallback Path (ONE call if len <= 10000)
+    # 4. Text Chunks Fallback Path (ONE call if len <= 15000)
     if not data:
-        chunks = chunk_text(paper_text, chunk_size=10000, overlap=300)
+        chunks = chunk_text(paper_text, chunk_size=15000, overlap=400)
         all_qs = []
         inferred_doc_type = local_doc_type
         inferred_subject = local_subject_guess
@@ -771,6 +858,13 @@ Output strictly valid JSON with this exact schema:
                 chunk_prompt = f"""You are an expert exam analyzer for {exam_type} examinations.
 Extract all questions and metadata from this exam paper chunk for subject "{subject_name}".
 Exam Year: {year}
+
+CRITICAL INSTRUCTIONS:
+- Extract EVERY individual sub-question (e.g. Q1(a), Q1(b), OR) as a separate entry (NEVER merge).
+- Extract printed marks (default 7).
+- Assign specific micro-topic name.
+- Assign short 2-4 word concept_key.
+- Preserve all mathematical formulas in clean LaTeX/Unicode.
 
 PAPER CHUNK {chunk_idx + 1} OF {len(chunks)}:
 \"\"\"
@@ -784,9 +878,10 @@ Return strictly valid JSON:
   "year_guess": {year},
   "questions": [
     {{
-      "question_text": "Full question text",
+      "question_text": "Full question text with equations intact",
       "marks": 7,
-      "unit_or_topic_guess": "Specific Topic Name",
+      "unit_or_topic_guess": "Specific Micro-Topic Name",
+      "concept_key": "concept-cluster-tag",
       "year": {year}
     }}
   ]
@@ -846,7 +941,7 @@ Return strictly valid JSON:
 
 
 def _sanitize_extracted_questions(q_list: List[Any], fallback_year: int) -> List[Dict[str, Any]]:
-    """Sanitizes question records, enforces minimum length, and ensures specific topic names."""
+    """Sanitizes question records, enforces minimum length, and ensures specific topic names and concept keys."""
     sanitized = []
     for item in q_list:
         if isinstance(item, dict) and "question_text" in item:
@@ -862,11 +957,17 @@ def _sanitize_extracted_questions(q_list: List[Any], fallback_year: int) -> List
                 words = re.findall(r"\b[A-Za-z0-9\-]{3,}\b", text)
                 topic = " ".join(words[:3]).title() if words else "Core Subject Principles"
 
+            concept_key = str(item.get("concept_key") or "").strip().lower()
+            if not concept_key:
+                words = [w for w in re.findall(r"\b[a-zA-Z]{3,}\b", topic.lower()) if w not in ["the", "and", "for"]]
+                concept_key = "-".join(words[:3]) if words else topic.lower().replace(" ", "-")
+
             year = int(item.get("year") or fallback_year)
             sanitized.append({
                 "question_text": text,
                 "marks": marks,
                 "unit_or_topic_guess": topic,
+                "concept_key": concept_key,
                 "year": year,
             })
     return sanitized
@@ -1104,6 +1205,136 @@ Provide 4 to 6 bullet points of what an examiner looks for in a full-marks answe
         pass
 
     return f"- **Definition:** State formal technical definition of {topic_name}.\n- **Core Points:** List key rules, assumptions, and formulas.\n- **Diagram/Example:** Include schematic representation.\n- **Conclusion:** Summary of operational importance."
+
+
+def get_topic_deep_dive(
+    topic_name: str,
+    subject_name: str,
+    language: str = "en",
+    exam_type: str = "General",
+) -> Dict[str, Any]:
+    """
+    Returns an in-depth concept breakdown for a study topic:
+    - detailed_explanation (with student-friendly analogy, in Hinglish if language=='hi')
+    - key_formulas (list of core equations, laws, or theorems)
+    - exam_tips (high-scoring tips for maximum marks)
+    """
+    default_dive = {
+        "topic_name": topic_name,
+        "detailed_explanation": (
+            f"{topic_name} is a fundamental concept in {subject_name}. "
+            f"It covers the governing principles, operational definitions, and standard mathematical formulations essential for examinations."
+            if language != "hi"
+            else f"{topic_name} exam ke point of view se {subject_name} ka ek high-scoring aur essential topic hai. Iske core principles aur steps ko samajhna exam me full marks lane me madad karta hai."
+        ),
+        "key_formulas": [
+            f"Standard Definition & Axioms of {topic_name}",
+            "Core Mathematical Relationship / Governing Equation",
+            "Boundary Conditions & Operating Limits",
+        ],
+        "exam_tips": [
+            "Always begin your exam answer with a clean 2-sentence formal definition.",
+            "Draw a neat labelled diagram or architecture flow chart where applicable.",
+            "Write the governing equation clearly with units specified for full marks.",
+        ],
+    }
+
+    if not GEMINI_WORKING or not GEMINI_API_KEY or (QUOTA_EXHAUSTED_UNTIL and time.time() < QUOTA_EXHAUSTED_UNTIL):
+        return default_dive
+
+    lang_inst = "in simple, crisp English" if language != "hi" else "in natural student Hinglish (Hindi in Roman English script, e.g. 'Iska basic rule ye hai ki...')"
+
+    prompt = f"""You are an elite exam tutor creating a high-scoring master study guide topic deep-dive.
+Subject: {subject_name}
+Topic: {topic_name}
+Level: {exam_type}
+Language: {lang_inst}
+
+Provide a deep-dive breakdown strictly in JSON:
+{{
+  "detailed_explanation": "2-3 comprehensive paragraphs explaining the core concept clearly, its real-world analogy, and how it works in practice.",
+  "key_formulas": ["Formula 1 with symbols explained", "Formula 2 or Theorem rule", "Mathematical condition"],
+  "exam_tips": ["Examiner checking point 1", "Common student mistake to avoid", "High-scoring presentation tip"]
+}}
+"""
+    try:
+        res = call_gemini_json(prompt, timeout=20)
+        if res and isinstance(res, dict) and "detailed_explanation" in res:
+            return {
+                "topic_name": topic_name,
+                "detailed_explanation": res.get("detailed_explanation", default_dive["detailed_explanation"]),
+                "key_formulas": res.get("key_formulas", default_dive["key_formulas"]),
+                "exam_tips": res.get("exam_tips", default_dive["exam_tips"]),
+            }
+    except Exception as e:
+        logger.warning(f"get_topic_deep_dive failed: {e}")
+
+    return default_dive
+
+
+def generate_model_answers(
+    question_text: str,
+    topic_name: str,
+    subject_name: str,
+    language: str = "en",
+) -> Dict[str, Any]:
+    """
+    Generates a structured model answer and step-by-step solution for an exam question:
+    - step_by_step_solution (structured steps showing formula + substitution + derivation/answer)
+    - key_formula (the main governing formula)
+    - examiner_tip (what gets awarded marks)
+    """
+    default_solution = {
+        "question_text": question_text,
+        "topic_name": topic_name,
+        "key_formula": f"Governing Rule / Law for {topic_name}",
+        "step_by_step_solution": [
+            f"**Step 1 (Definition / Formula):** State the governing law or mathematical formula for {topic_name}.",
+            "**Step 2 (Assumptions & Given Values):** Write down all given parameters with appropriate SI units.",
+            "**Step 3 (Derivation / Working):** Substitute values into the formula and solve step-by-step.",
+            "**Step 4 (Final Statement & Units):** State the final conclusion with boxed result and units.",
+        ],
+        "examiner_tip": "Examiners award step-marks for writing the formula and SI units even if numerical calculation has minor slips.",
+    }
+
+    if not GEMINI_WORKING or not GEMINI_API_KEY or (QUOTA_EXHAUSTED_UNTIL and time.time() < QUOTA_EXHAUSTED_UNTIL):
+        return default_solution
+
+    lang_inst = "in clear English" if language != "hi" else "in student-friendly Hinglish"
+
+    prompt = f"""You are a senior university and board exam paper evaluator.
+Generate the ideal model answer and step-by-step solution for this exam question:
+Subject: {subject_name}
+Topic: {topic_name}
+Question: {question_text}
+Language: {lang_inst}
+
+Output strictly valid JSON:
+{{
+  "key_formula": "Primary formula, theorem statement, or core concept rule",
+  "step_by_step_solution": [
+    "Step 1: Heading & Formula/Principle",
+    "Step 2: Analysis / Working / Substitution",
+    "Step 3: Derivation or Core Explanation",
+    "Step 4: Final Conclusion / Result"
+  ],
+  "examiner_tip": "What examiners look for to award full marks (e.g. diagram, units, steps)"
+}}
+"""
+    try:
+        res = call_gemini_json(prompt, timeout=22)
+        if res and isinstance(res, dict) and "step_by_step_solution" in res:
+            return {
+                "question_text": question_text,
+                "topic_name": topic_name,
+                "key_formula": res.get("key_formula", default_solution["key_formula"]),
+                "step_by_step_solution": res.get("step_by_step_solution", default_solution["step_by_step_solution"]),
+                "examiner_tip": res.get("examiner_tip", default_solution["examiner_tip"]),
+            }
+    except Exception as e:
+        logger.warning(f"generate_model_answers failed: {e}")
+
+    return default_solution
 
 
 # ---------------------------------------------------------------------------

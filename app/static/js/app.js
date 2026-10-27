@@ -486,7 +486,9 @@ function renderChecklist(subjectId, topics) {
       <input type="checkbox" id="chk_${topic.id}" ${isChecked ? "checked" : ""} onchange="toggleChecklistItem(${subjectId}, ${topic.id})">
       <label for="chk_${topic.id}" class="checklist-item-label">
         <span class="checklist-priority-dot dot-${topic.priority_level.toLowerCase()}"></span>
-        <span class="checklist-item-text">${escapeHtml(topic.name)}</span>
+        <span class="checklist-item-text" onclick="event.preventDefault(); openTopicDrawer(${topic.id})" style="cursor: pointer;" title="Click to open Topic Study Drawer & Answers">
+          ${escapeHtml(topic.name)} <span class="badge-explore">Explore 📖</span>
+        </span>
       </label>
     `;
     container.appendChild(item);
@@ -496,6 +498,7 @@ function renderChecklist(subjectId, topics) {
   const pct = Math.round((completedCount / total) * 100);
   if (progressText) progressText.textContent = `${completedCount} of ${total} topics completed (${pct}%)`;
   if (progressFill) progressFill.style.width = `${pct}%`;
+  renderMath(container);
 }
 
 function toggleChecklistItem(subjectId, topicId) {
@@ -635,8 +638,8 @@ function renderTopicsTable(topics) {
         </span>
       </td>
       <td>
-        <div style="font-weight: 600; color: var(--text-primary); font-size: 14px;">
-          ${escapeHtml(t.name)} ${bonusBadge}
+        <div style="font-weight: 600; color: var(--text-primary); font-size: 14px; cursor: pointer;" onclick="openTopicDrawer(${t.id})" title="Click to open Topic Study Drawer & Answers">
+          ${escapeHtml(t.name)} ${bonusBadge} <span class="badge-explore">Explore 📖</span>
         </div>
         <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
           ${escapeHtml(t.priority_breakdown?.gap_reason || (isAiEstimate ? "Standard syllabus priority" : "Analyzed from past exams"))}
@@ -656,6 +659,9 @@ function renderTopicsTable(topics) {
       </td>
       <td class="text-right">
         <div class="table-actions">
+          <button class="btn-action-drawer" onclick="openTopicDrawer(${t.id})" title="Explore deep-dive, formulas, and PYQs">
+            🔍 Explore
+          </button>
           <button class="btn-action-notes" onclick="openNotesModal(${t.id}, '${escapeQuote(t.name)}')">
             📝 Notes
           </button>
@@ -667,6 +673,7 @@ function renderTopicsTable(topics) {
     `;
     tbody.appendChild(tr);
   });
+  renderMath(tbody);
 }
 
 function filterTopicsTable() {
@@ -1652,4 +1659,443 @@ function escapeHtml(text) {
 function escapeQuote(text) {
   if (!text) return "";
   return String(text).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+}
+
+// ============================================================================
+// Live KaTeX / MathJax Equation Rendering
+// ============================================================================
+
+function renderMath(container = document.body) {
+  if (typeof renderMathInElement === "function" && container) {
+    try {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true }
+        ],
+        throwOnError: false,
+      });
+    } catch (e) {
+      console.warn("KaTeX render error:", e);
+    }
+  }
+}
+
+// ============================================================================
+// 3D Hardware-Accelerated Interactive Background
+// ============================================================================
+
+function init3DBackground() {
+  const canvas = document.getElementById("bg3dCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  let width = (canvas.width = window.innerWidth);
+  let height = (canvas.height = window.innerHeight);
+
+  window.addEventListener("resize", () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  const numParticles = 65;
+  const particles = [];
+  for (let i = 0; i < numParticles; i++) {
+    particles.push({
+      x: (Math.random() - 0.5) * 1200,
+      y: (Math.random() - 0.5) * 800,
+      z: Math.random() * 800 + 100,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      vz: (Math.random() - 0.5) * 0.25,
+      size: Math.random() * 2.5 + 1.2,
+    });
+  }
+
+  let mouseX = 0, mouseY = 0;
+  let targetMouseX = 0, targetMouseY = 0;
+
+  window.addEventListener("mousemove", (e) => {
+    targetMouseX = (e.clientX - width / 2) * 0.25;
+    targetMouseY = (e.clientY - height / 2) * 0.25;
+  });
+
+  function draw() {
+    mouseX += (targetMouseX - mouseX) * 0.05;
+    mouseY += (targetMouseY - mouseY) * 0.05;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const isDark = document.body.classList.contains("theme-dark");
+    const focalLength = 400;
+
+    const projected = [];
+
+    for (let i = 0; i < numParticles; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+
+      if (p.x < -700) p.x = 700;
+      if (p.x > 700) p.x = -700;
+      if (p.y < -500) p.y = 500;
+      if (p.y > 500) p.y = -500;
+      if (p.z < 50) p.z = 900;
+      if (p.z > 900) p.z = 50;
+
+      const cx = p.x - mouseX;
+      const cy = p.y - mouseY;
+      const cz = p.z;
+
+      const scale = focalLength / (focalLength + cz);
+      const px = width / 2 + cx * scale;
+      const py = height / 2 + cy * scale;
+
+      projected.push({ x: px, y: py, scale, z: cz });
+    }
+
+    // Connect close particles with subtle 3D glowing lines
+    for (let i = 0; i < numParticles; i++) {
+      for (let j = i + 1; j < numParticles; j++) {
+        const p1 = projected[i];
+        const p2 = projected[j];
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 110) {
+          const alpha = (1 - dist / 110) * 0.18 * Math.min(p1.scale, p2.scale);
+          ctx.beginPath();
+          ctx.strokeStyle = isDark
+            ? `rgba(129, 140, 248, ${alpha * 1.5})`
+            : `rgba(99, 102, 241, ${alpha})`;
+          ctx.lineWidth = 1;
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Draw 3D nodes
+    for (let i = 0; i < numParticles; i++) {
+      const p = projected[i];
+      const r = particles[i].size * p.scale;
+      const alpha = Math.min(1, Math.max(0.15, p.scale * 0.85));
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.5, r), 0, Math.PI * 2);
+      ctx.fillStyle = isDark
+        ? `rgba(165, 180, 252, ${alpha * 0.9})`
+        : `rgba(79, 70, 229, ${alpha * 0.6})`;
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// Start 3D background immediately
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init3DBackground);
+} else {
+  init3DBackground();
+}
+
+// ============================================================================
+// Interactive Topic Explorer & Answer Drawer Controller
+// ============================================================================
+
+let currentDrawerTopicData = null;
+
+async function openTopicDrawer(topicId) {
+  const modal = document.getElementById("topicDrawerModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  const titleEl = document.getElementById("drawerTopicTitle");
+  const badgesEl = document.getElementById("drawerBadges");
+  const conceptBox = document.getElementById("drawerConceptBox");
+  const formulasBox = document.getElementById("drawerFormulasBox");
+  const tipsBox = document.getElementById("drawerTipsBox");
+  const questionsList = document.getElementById("drawerQuestionsList");
+  const qCountBadge = document.getElementById("drawerQuestionCount");
+  const searchInput = document.getElementById("drawerSearchInput");
+  if (searchInput) searchInput.value = "";
+
+  conceptBox.innerHTML = `<div class="progress-box"><div class="spinner"></div><div class="progress-text">Analyzing topic deep-dive & PYQs...</div></div>`;
+  formulasBox.innerHTML = "";
+  tipsBox.innerHTML = "";
+  questionsList.innerHTML = "";
+
+  try {
+    const res = await fetch(`/api/topics/${topicId}/deep-dive?language=${state.uiLang}`);
+    if (!res.ok) throw new Error("Could not load topic details");
+    const data = await res.json();
+    currentDrawerTopicData = data;
+
+    titleEl.textContent = data.topic_name;
+    const badgeColor = data.priority_level === "High" ? "tier-high" : (data.priority_level === "Medium" ? "tier-med" : "tier-low");
+    badgesEl.innerHTML = `
+      <span class="tier-pill ${badgeColor}">🔥 ${data.priority_level} Priority (${data.priority_score}/100)</span>
+      <span class="badge-mini">Total Marks: ${data.total_marks}M</span>
+      <span class="badge-mini">Appeared ${data.frequency}x</span>
+      <span class="badge-mini">Years: ${(data.years_asked || []).join(", ") || "Recent"}</span>
+    `;
+
+    // Concept Overview
+    conceptBox.innerHTML = marked.parse(data.detailed_explanation || "No concept overview available.");
+
+    // Key Formulas Box
+    if (data.key_formulas && data.key_formulas.length > 0) {
+      formulasBox.innerHTML = data.key_formulas.map(f => `<div>• <b>${escapeHtml(f)}</b></div>`).join("");
+      formulasBox.parentElement.style.display = "block";
+    } else {
+      formulasBox.parentElement.style.display = "none";
+    }
+
+    // Exam Tips Box
+    if (data.exam_tips && data.exam_tips.length > 0) {
+      tipsBox.innerHTML = data.exam_tips.map(tp => `<div>✓ ${escapeHtml(tp)}</div>`).join("");
+      tipsBox.parentElement.style.display = "block";
+    } else {
+      tipsBox.parentElement.style.display = "none";
+    }
+
+    // Render PYQs
+    renderDrawerQuestions(data.questions || []);
+
+    // KaTeX Math Rendering
+    renderMath(modal);
+
+  } catch (err) {
+    console.error("Error opening topic drawer:", err);
+    conceptBox.innerHTML = `<div class="text-danger">Unable to load details at this moment.</div>`;
+  }
+}
+
+function renderDrawerQuestions(questions) {
+  const questionsList = document.getElementById("drawerQuestionsList");
+  const qCountBadge = document.getElementById("drawerQuestionCount");
+  if (!questionsList) return;
+
+  if (qCountBadge) qCountBadge.textContent = `${questions.length} Questions`;
+  questionsList.innerHTML = "";
+
+  if (!questions || questions.length === 0) {
+    questionsList.innerHTML = `<div class="text-muted p-3 text-center">No questions recorded for this topic yet.</div>`;
+    return;
+  }
+
+  questions.forEach((q) => {
+    const card = document.createElement("div");
+    card.className = "drawer-q-card";
+    card.id = `drawerQCard_${q.id}`;
+    card.innerHTML = `
+      <div class="drawer-q-header">
+        <span class="question-marks-pill">${q.marks || 7} Marks</span>
+        <span class="year-tag">${q.year || 2023} Paper</span>
+      </div>
+      <div class="drawer-q-text">${escapeHtml(q.question_text)}</div>
+      <button class="btn-action-drawer mt-1" id="btnDrawerSol_${q.id}" onclick="toggleDrawerQuestionSolution(${q.id}, this)">
+        💡 Show Step-by-Step AI Solution
+      </button>
+      <div class="drawer-solution-box" id="drawerSolBox_${q.id}" style="display: none;"></div>
+    `;
+    questionsList.appendChild(card);
+  });
+
+  renderMath(questionsList);
+}
+
+function filterDrawerQuestions() {
+  if (!currentDrawerTopicData) return;
+  const search = (document.getElementById("drawerSearchInput")?.value || "").toLowerCase().trim();
+  const filter = document.getElementById("drawerMarksFilter")?.value || "";
+
+  let filtered = currentDrawerTopicData.questions || [];
+
+  if (filter === "high") {
+    filtered = filtered.filter(q => (q.marks || 7) >= 7);
+  } else if (filter === "short") {
+    filtered = filtered.filter(q => (q.marks || 7) <= 5);
+  }
+
+  if (search) {
+    filtered = filtered.filter(q => q.question_text.toLowerCase().includes(search));
+  }
+
+  renderDrawerQuestions(filtered);
+}
+
+async function toggleDrawerQuestionSolution(qId, btn) {
+  const box = document.getElementById(`drawerSolBox_${qId}`);
+  if (!box) return;
+
+  if (box.style.display === "block") {
+    box.style.display = "none";
+    btn.textContent = "💡 Show Step-by-Step AI Solution";
+    return;
+  }
+
+  if (box.innerHTML && !box.innerHTML.includes("Generating")) {
+    box.style.display = "block";
+    btn.textContent = "▲ Hide Solution";
+    return;
+  }
+
+  box.style.display = "block";
+  box.innerHTML = `<div class="spinner-sm"></div> Generating structured step-by-step solution...`;
+  btn.textContent = "▲ Hide Solution";
+
+  try {
+    const res = await fetch(`/api/questions/${qId}/solution?language=${state.uiLang}`, { method: "POST" });
+    if (!res.ok) throw new Error("Could not generate solution");
+    const data = await res.json();
+    const sol = data.solution || {};
+
+    const stepsHtml = (sol.step_by_step_solution || []).map(s => `<div>• ${escapeHtml(s)}</div>`).join("");
+    box.innerHTML = `
+      <div style="margin-bottom: 6px;"><b>📐 Formula / Principle:</b> ${escapeHtml(sol.key_formula || "")}</div>
+      <div style="margin-bottom: 6px;"><b>Step-by-Step Solution:</b><br/>${stepsHtml}</div>
+      <div style="color: #b45309;"><b>Examiner Tip:</b> ${escapeHtml(sol.examiner_tip || "")}</div>
+    `;
+    renderMath(box);
+  } catch (err) {
+    box.innerHTML = `<div class="text-danger">Unable to load solution at this moment.</div>`;
+  }
+}
+
+function closeTopicDrawer() {
+  const modal = document.getElementById("topicDrawerModal");
+  if (modal) modal.style.display = "none";
+}
+
+function openTopicNotesFromDrawer() {
+  if (currentDrawerTopicData) {
+    closeTopicDrawer();
+    openNotesModal(currentDrawerTopicData.topic_id, currentDrawerTopicData.topic_name);
+  }
+}
+
+// ============================================================================
+// Download Rich PDF (MathJax / KaTeX Textbook Print)
+// ============================================================================
+
+function exportRichMathJaxTextbookPdf() {
+  if (!state.currentSubjectData) {
+    showToast("Please select or load a subject first.", "warning");
+    return;
+  }
+  const data = state.currentSubjectData;
+  const subj = data.subject || {};
+  const topics = data.topics || [];
+  const repeated = data.repeated_groups || [];
+
+  const container = document.getElementById("richTextbookPrintContainer");
+  if (!container) return;
+
+  let topicsHtml = "";
+  topics.forEach((t, i) => {
+    const qList = (t.questions || []).map(q => `
+      <tr>
+        <td style="width: 30px; text-align: center;">☐</td>
+        <td>${escapeHtml(q.question_text)}</td>
+        <td style="width: 60px; text-align: center;">${q.marks}M</td>
+        <td style="width: 60px; text-align: center;">${q.year}</td>
+      </tr>
+    `).join("");
+
+    topicsHtml += `
+      <div class="textbook-topic-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="font-size: 13pt; margin: 0; color: #1e1b4b;">${i + 1}. ${escapeHtml(t.name)}</h3>
+          <span style="font-weight: bold; color: ${t.priority_level === 'High' ? '#dc2626' : '#d97706'};">[${t.priority_level} Priority — Score: ${Math.round(t.priority_score)}/100]</span>
+        </div>
+        <div style="font-size: 9.5pt; color: #4b5563; margin-top: 3pt;">
+          <b>Frequency:</b> ${t.frequency}x asked | <b>Weightage:</b> ${t.total_marks} Marks | <b>Years:</b> ${(t.years_asked || []).join(", ") || "Recent"}
+        </div>
+        <div class="textbook-formula-box">
+          <b>📐 Key Formulas & Principles:</b>
+          <div>• Governing Law & Axioms for ${escapeHtml(t.name)}</div>
+          <div>• Standard Mathematical Formulation / Circuit Relationships</div>
+        </div>
+        ${qList ? `
+          <table class="textbook-question-table">
+            <thead>
+              <tr>
+                <th>Done</th>
+                <th>Question Text</th>
+                <th>Marks</th>
+                <th>Year</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${qList}
+            </tbody>
+          </table>
+        ` : ""}
+      </div>
+    `;
+  });
+
+  let repeatedHtml = "";
+  if (repeated.length > 0) {
+    repeatedHtml = `
+      <div class="print-page-break"></div>
+      <h2 class="textbook-section-title">Section 2: Recurring Question Patterns & Model Solutions</h2>
+      ${repeated.map((rg, idx) => `
+        <div class="textbook-solution-card">
+          <div style="font-weight: bold; font-size: 11pt; color: #1e1b4b;">Pattern #${idx + 1}: "${escapeHtml(rg.canonical_question)}"</div>
+          <div style="font-size: 9.5pt; color: #4338ca; margin-top: 3pt;">
+            Appeared in: ${(rg.years || []).join(", ")} | Semantic Match: ${rg.similarity_score}%
+          </div>
+          <div style="margin-top: 6pt; font-size: 10pt;">
+            <b>Model Answer Structure:</b>
+            <div>• <b>Step 1 (Definition):</b> State formal governing principles and assumptions.</div>
+            <div>• <b>Step 2 (Formulation):</b> Write out governing formulas with variables defined.</div>
+            <div>• <b>Step 3 (Derivation/Working):</b> Step-by-step substitution and algebraic simplification.</div>
+            <div>• <b>Step 4 (Conclusion):</b> State final numerical/theoretical result with SI units.</div>
+          </div>
+        </div>
+      `).join("")}
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="textbook-header-banner">
+      <div class="textbook-title">ExamSense | Master Study & Solution Guide</div>
+      <div class="textbook-subtitle">Publication-Grade Examination Blueprint with Full MathJax / KaTeX Formulas</div>
+      <table class="textbook-meta-grid">
+        <tr>
+          <td><b>Subject:</b> ${escapeHtml(subj.name)} (${escapeHtml(subj.code)})</td>
+          <td><b>Examination Level:</b> ${escapeHtml(subj.exam_type || "General")}</td>
+          <td><b>Date:</b> ${new Date().toLocaleDateString()}</td>
+        </tr>
+        <tr>
+          <td><b>Total Exam Papers:</b> ${data.stats?.total_papers || 1}</td>
+          <td><b>Total Questions:</b> ${data.stats?.total_questions || topics.length}</td>
+          <td><b>Topics Mapped:</b> ${topics.length}</td>
+        </tr>
+      </table>
+    </div>
+
+    <h2 class="textbook-section-title">Section 1: Prioritized Topic Deep-Dives & Question Bank</h2>
+    ${topicsHtml}
+
+    ${repeatedHtml}
+
+    <div style="margin-top: 20pt; border-top: 1pt solid #d1d5db; padding-top: 8pt; font-size: 9pt; color: #6b7280; font-style: italic;">
+      Generated by ExamSense AI Exam Intelligence. Master all concepts thoroughly for maximum exam performance.
+    </div>
+  `;
+
+  renderMath(container);
+  window.print();
 }

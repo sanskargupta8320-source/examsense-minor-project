@@ -41,6 +41,8 @@ from app.services.ai_service import (
     generate_syllabus_from_subject_name,
     generate_important_questions_from_notes,
     generate_answer_outline,
+    get_topic_deep_dive,
+    generate_model_answers,
     get_ai_status,
     run_startup_ai_check,
     AIUnavailableError,
@@ -1133,6 +1135,72 @@ def get_topic_quiz(
     }
 
 
+@app.get("/api/topics/{topic_id}/deep-dive")
+def get_topic_deep_dive_api(
+    topic_id: int,
+    language: str = Query("en", pattern="^(en|hi)$"),
+    db: Session = Depends(get_db),
+):
+    """Returns in-depth concept breakdown, formulas, examiner tips, and PYQs for Topic Drawer."""
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found.")
+
+    dive = get_topic_deep_dive(
+        topic_name=topic.name,
+        subject_name=topic.subject.name,
+        language=language,
+        exam_type=topic.subject.exam_type or "General",
+    )
+    questions_list = [q.to_dict() for q in topic.questions]
+    key_formulas = dive.get("key_formulas", [])
+    exam_tips = dive.get("exam_tips", [])
+    return {
+        "topic_id": topic.id,
+        "topic_name": topic.name,
+        "priority_level": topic.priority_level,
+        "priority_score": round(topic.priority_score, 1),
+        "total_marks": topic.total_marks,
+        "frequency": topic.frequency,
+        "years_asked": topic.get_years_list(),
+        "detailed_explanation": dive.get("detailed_explanation", ""),
+        "key_formulas": key_formulas,
+        "key_formulas_or_points": key_formulas,
+        "exam_tips": exam_tips,
+        "important_exam_tips": exam_tips,
+        "questions": questions_list,
+    }
+
+
+@app.post("/api/questions/{question_id}/solution")
+def get_question_model_solution_api(
+    question_id: int,
+    language: str = Query("en", pattern="^(en|hi)$"),
+    db: Session = Depends(get_db),
+):
+    """Generates a structured step-by-step model answer for an exam question."""
+    q = db.query(Question).filter(Question.id == question_id).first()
+    if not q:
+        raise HTTPException(status_code=404, detail="Question not found.")
+
+    sol = generate_model_answers(
+        question_text=q.question_text,
+        topic_name=q.unit_or_topic_guess,
+        subject_name=q.subject.name,
+        language=language,
+    )
+    formatted_answer = "\n".join(sol.get("step_by_step_solution", [])) if isinstance(sol, dict) else str(sol)
+    return {
+        "question_id": q.id,
+        "question_text": q.question_text,
+        "marks": q.marks,
+        "year": q.year,
+        "topic_name": q.unit_or_topic_guess,
+        "solution": sol,
+        "model_answer": formatted_answer,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Feature 5 & Phase 8: Download Study Plan as PDF
 # ---------------------------------------------------------------------------
@@ -1141,11 +1209,12 @@ def get_topic_quiz(
 def export_subject_study_plan_pdf(
     subject_id: int,
     sections: Optional[str] = Query(None),
+    language: Optional[str] = Query("en"),
     db: Session = Depends(get_db),
 ):
     """
-    Generates and serves a reorganized PDF study plan for the subject.
-    Supports optional ?sections=summary,topics,repeated,questions,plan query parameter.
+    Generates and serves a reorganized Master Study & Solution Guide PDF for the subject.
+    Supports optional ?sections=summary,topics,repeated,questions,plan and ?language=en|hi.
     """
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
@@ -1173,6 +1242,7 @@ def export_subject_study_plan_pdf(
         stats=stats,
         suggested_questions=suggested_questions,
         sections=sec_list,
+        language=language or "en",
     )
 
     clean_code = re.sub(r"[^A-Za-z0-9_\-]", "_", subject.code or "Exam")

@@ -101,10 +101,57 @@ def extract_text_from_image(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
     return extracted_text, True, metadata
 
 
+def preprocess_extracted_exam_text(text: str) -> str:
+    """
+    Injects clean newline breaks before inline question markers (Q.1, Q1., Question 1,
+    1(a), (b), OR, [5 Marks], etc.) to prevent multi-question merging in inline or
+    two-column layouts, while preserving equations and formulas intact.
+    """
+    if not text:
+        return ""
+
+    # 1. Break before standard Question markers: "Q.1", "Q1.", "Question 1", etc.
+    text = re.sub(
+        r"(?<=[^\n])\s+(Q(?:uestion)?\s*\.?\s*\d+[\.\:\-\)])",
+        r"\n\1",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # 2. Break before numbered questions at word boundary: " 1. ", " 2) ", " 1(a) "
+    text = re.sub(
+        r"(?<=[^\n])\s+(\b\d{1,2}[\.\)]\s*(?:\([a-zA-Z0-9]+\))?)",
+        r"\n\1",
+        text,
+    )
+    # 3. Break before sub-question letters e.g. " (a) ", " (b) ", " (i) ", " (ii) "
+    text = re.sub(
+        r"(?<=[^\n])\s+(\([a-z0-9]{1,3}\)\s*)",
+        r"\n\1",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # 4. Break before "OR" between elective questions
+    text = re.sub(
+        r"(?<=[^\n])\s+(\bOR\b|\b[O|o][R|r]\b)(?=\s+[A-Za-z0-9(Q])",
+        r"\n\n--- OR ---\n",
+        text,
+    )
+    # 5. Break after marks tags e.g. "[5 Marks]", "(7M)" if followed immediately by next question
+    text = re.sub(
+        r"(\[\s*\d+\s*(?:marks|m)?\s*\]|\(\s*\d+\s*(?:marks|m)?\s*\))\s+(?=(?:Q(?:uestion)?|\d+[\.\)]|\([a-zA-Z0-9]+\)))",
+        r"\1\n",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Normalize excessive newlines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
+
+
 def extract_text_from_pdf(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
     """
     Extracts text from a given PDF file using PyMuPDF and optional OCR fallback.
-    Never crashes when OCR is missing.
+    Preserves natural reading order via block sorting and prevents inline question merging.
     """
     if not os.path.exists(file_path):
         raise ValueError("File not found on server. Please try uploading again.")
@@ -135,9 +182,23 @@ def extract_text_from_pdf(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
 
     for page_num in range(page_count):
         page = doc[page_num]
-        text = page.get_text("text").strip()
-        if text:
-            full_text_parts.append(text)
+        try:
+            # Use sort=True on blocks to preserve natural top-to-bottom reading order in two-column PDFs
+            blocks = page.get_text("blocks", sort=True)
+            block_texts = []
+            for b in blocks:
+                if len(b) >= 5 and b[4] and b[4].strip():
+                    block_texts.append(b[4].strip())
+            if block_texts:
+                page_text = "\n".join(block_texts)
+            else:
+                page_text = page.get_text("text").strip()
+        except Exception:
+            page_text = page.get_text("text").strip()
+
+        if page_text:
+            cleaned_page = preprocess_extracted_exam_text(page_text)
+            full_text_parts.append(cleaned_page)
 
     combined_text = "\n\n".join(full_text_parts).strip()
 
