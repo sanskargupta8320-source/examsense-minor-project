@@ -468,6 +468,7 @@ function renderChecklist(subjectId, topics) {
 
   if (!container || !topics || topics.length === 0) {
     if (container) container.innerHTML = `<div class="text-muted" style="font-size: 13px;">No topics available yet.</div>`;
+    updateMarksCoverageMeter(0);
     return;
   }
 
@@ -475,10 +476,18 @@ function renderChecklist(subjectId, topics) {
   container.innerHTML = "";
 
   let completedCount = 0;
+  let completedMarks = 0;
+  let totalMarks = 0;
 
   topics.forEach((topic) => {
     const isChecked = Boolean(saved[topic.id]);
-    if (isChecked) completedCount++;
+    const topicMarks = Number(topic.total_marks) || (topic.frequency * 7) || 7;
+    totalMarks += topicMarks;
+
+    if (isChecked) {
+      completedCount++;
+      completedMarks += topicMarks;
+    }
 
     const item = document.createElement("div");
     item.className = `checklist-item ${isChecked ? "completed" : ""}`;
@@ -498,7 +507,51 @@ function renderChecklist(subjectId, topics) {
   const pct = Math.round((completedCount / total) * 100);
   if (progressText) progressText.textContent = `${completedCount} of ${total} topics completed (${pct}%)`;
   if (progressFill) progressFill.style.width = `${pct}%`;
+
+  // Calculate and update Estimated Exam Marks Coverage Meter
+  const marksCoveragePct = totalMarks > 0 ? Math.min(100, Math.round((completedMarks / totalMarks) * 100)) : 0;
+  updateMarksCoverageMeter(marksCoveragePct);
+
   renderMath(container);
+}
+
+function updateMarksCoverageMeter(pct) {
+  const coverageVal = document.getElementById("coverageMarksValue");
+  const coverageFill = document.getElementById("coverageProgressFill");
+  const statusBadge = document.getElementById("coverageStatusBadge");
+
+  if (coverageVal) coverageVal.textContent = `${pct}%`;
+  if (coverageFill) {
+    coverageFill.style.width = `${pct}%`;
+    if (pct < 35) {
+      coverageFill.style.background = "linear-gradient(90deg, #ef4444, #f97316)";
+    } else if (pct < 60) {
+      coverageFill.style.background = "linear-gradient(90deg, #f59e0b, #eab308)";
+    } else if (pct < 75) {
+      coverageFill.style.background = "linear-gradient(90deg, #10b981, #06b6d4)";
+    } else {
+      coverageFill.style.background = "linear-gradient(90deg, #6366f1, #a855f7)";
+    }
+  }
+
+  if (statusBadge) {
+    if (pct === 0) {
+      statusBadge.className = "coverage-status-badge badge-neutral";
+      statusBadge.textContent = "⚠️ Start studying to enter safe zone";
+    } else if (pct < 40) {
+      statusBadge.className = "coverage-status-badge badge-danger";
+      statusBadge.textContent = `⚠️ Below Passing Threshold (~${pct}%) — Focus on High Priority topics!`;
+    } else if (pct < 60) {
+      statusBadge.className = "coverage-status-badge badge-warning";
+      statusBadge.textContent = `🟡 Safe Passing Zone Reached! (~${pct}% of Expected Exam Marks)`;
+    } else if (pct < 75) {
+      statusBadge.className = "coverage-status-badge badge-success";
+      statusBadge.textContent = `🟢 First Class Secured! (~${pct}% of Exam Marks Covered)`;
+    } else {
+      statusBadge.className = "coverage-status-badge badge-distinction";
+      statusBadge.textContent = `🏆 Distinction Zone! (~${pct}% Exam Marks Covered — Top Rank Range)`;
+    }
+  }
 }
 
 function toggleChecklistItem(subjectId, topicId) {
@@ -1868,8 +1921,18 @@ async function openTopicDrawer(topicId) {
       tipsBox.parentElement.style.display = "none";
     }
 
+    // Stop any active voice narration
+    updateVoiceButton(false);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
     // Render PYQs
     renderDrawerQuestions(data.questions || []);
+
+    // Render Concept Flowchart (Mermaid.js)
+    renderTopicFlowchart(data.topic_name, data);
+
+    // Load Quick 3-Question Self-Test
+    loadDrawerQuickQuiz(topicId, data.topic_name);
 
     // KaTeX Math Rendering
     renderMath(modal);
@@ -1880,101 +1943,246 @@ async function openTopicDrawer(topicId) {
   }
 }
 
-function renderDrawerQuestions(questions) {
-  const questionsList = document.getElementById("drawerQuestionsList");
-  const qCountBadge = document.getElementById("drawerQuestionCount");
-  if (!questionsList) return;
+// ============================================================================
+// Voice Narration (Web Speech Synthesis API)
+// ============================================================================
 
-  if (qCountBadge) qCountBadge.textContent = `${questions.length} Questions`;
-  questionsList.innerHTML = "";
+let currentUtterance = null;
+let isSpeakingVoice = false;
 
-  if (!questions || questions.length === 0) {
-    questionsList.innerHTML = `<div class="text-muted p-3 text-center">No questions recorded for this topic yet.</div>`;
-    return;
+function updateVoiceButton(speaking) {
+  isSpeakingVoice = speaking;
+  const btn = document.getElementById("btnVoiceExplain");
+  const icon = document.getElementById("voiceIcon");
+  const text = document.getElementById("voiceBtnText");
+  if (!btn) return;
+
+  if (speaking) {
+    btn.classList.add("speaking");
+    if (icon) icon.textContent = "⏹️";
+    if (text) text.textContent = "Stop Narration";
+  } else {
+    btn.classList.remove("speaking");
+    if (icon) icon.textContent = "🔊";
+    if (text) text.textContent = "Listen to Explanation";
   }
-
-  questions.forEach((q) => {
-    const card = document.createElement("div");
-    card.className = "drawer-q-card";
-    card.id = `drawerQCard_${q.id}`;
-    card.innerHTML = `
-      <div class="drawer-q-header">
-        <span class="question-marks-pill">${q.marks || 7} Marks</span>
-        <span class="year-tag">${q.year || 2023} Paper</span>
-      </div>
-      <div class="drawer-q-text">${escapeHtml(q.question_text)}</div>
-      <button class="btn-action-drawer mt-1" id="btnDrawerSol_${q.id}" onclick="toggleDrawerQuestionSolution(${q.id}, this)">
-        💡 Show Step-by-Step AI Solution
-      </button>
-      <div class="drawer-solution-box" id="drawerSolBox_${q.id}" style="display: none;"></div>
-    `;
-    questionsList.appendChild(card);
-  });
-
-  renderMath(questionsList);
 }
 
-function filterDrawerQuestions() {
-  if (!currentDrawerTopicData) return;
-  const search = (document.getElementById("drawerSearchInput")?.value || "").toLowerCase().trim();
-  const filter = document.getElementById("drawerMarksFilter")?.value || "";
-
-  let filtered = currentDrawerTopicData.questions || [];
-
-  if (filter === "high") {
-    filtered = filtered.filter(q => (q.marks || 7) >= 7);
-  } else if (filter === "short") {
-    filtered = filtered.filter(q => (q.marks || 7) <= 5);
+function toggleVoiceExplanation() {
+  if (!('speechSynthesis' in window)) {
+    showToast("Text-to-speech is not supported by your browser.", "warning");
+    return;
   }
 
-  if (search) {
-    filtered = filtered.filter(q => q.question_text.toLowerCase().includes(search));
+  if (isSpeakingVoice) {
+    window.speechSynthesis.cancel();
+    updateVoiceButton(false);
+    return;
   }
 
-  renderDrawerQuestions(filtered);
+  const conceptBox = document.getElementById("drawerConceptBox");
+  if (!conceptBox) return;
+  const rawText = conceptBox.innerText || conceptBox.textContent || "";
+  if (!rawText.trim() || rawText.includes("Loading")) {
+    showToast("Explanation is still loading...", "info");
+    return;
+  }
+
+  const cleanSpeechText = rawText
+    .replace(/[#\*_`]/g, "")
+    .replace(/\\[a-zA-Z]+/g, " formula ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  currentUtterance = new SpeechSynthesisUtterance(cleanSpeechText);
+  currentUtterance.rate = 0.95;
+  currentUtterance.pitch = 1.0;
+
+  const voices = window.speechSynthesis.getVoices();
+  const hindiVoice = voices.find(v => (v.lang && (v.lang.includes("hi") || v.lang.includes("IN"))) || (v.name && v.name.includes("India")));
+  if (state.uiLang === "hi" && hindiVoice) {
+    currentUtterance.voice = hindiVoice;
+  }
+
+  currentUtterance.onend = () => {
+    updateVoiceButton(false);
+  };
+  currentUtterance.onerror = () => {
+    updateVoiceButton(false);
+  };
+
+  window.speechSynthesis.speak(currentUtterance);
+  updateVoiceButton(true);
 }
 
-async function toggleDrawerQuestionSolution(qId, btn) {
-  const box = document.getElementById(`drawerSolBox_${qId}`);
-  if (!box) return;
+// ============================================================================
+// Concept Flowchart & Mind-Map (Mermaid.js)
+// ============================================================================
 
-  if (box.style.display === "block") {
-    box.style.display = "none";
-    btn.textContent = "💡 Show Step-by-Step AI Solution";
-    return;
-  }
+async function renderTopicFlowchart(topicName, data) {
+  const container = document.getElementById("drawerMermaidGraph");
+  if (!container) return;
 
-  if (box.innerHTML && !box.innerHTML.includes("Generating")) {
-    box.style.display = "block";
-    btn.textContent = "▲ Hide Solution";
-    return;
-  }
+  const cleanName = (topicName || "Topic").replace(/["\(\)\[\]\{\}]/g, " ").trim();
+  const formulas = (data.key_formulas || []).slice(0, 2).map((f, i) => `F${i + 1}["📐 ${f.replace(/["\(\)\[\]\{\}]/g, ' ').substring(0, 30)}"]`);
+  const tips = (data.exam_tips || []).slice(0, 2).map((t, i) => `T${i + 1}["💡 ${t.replace(/["\(\)\[\]\{\}]/g, ' ').substring(0, 30)}"]`);
 
-  box.style.display = "block";
-  box.innerHTML = `<div class="spinner-sm"></div> Generating structured step-by-step solution...`;
-  btn.textContent = "▲ Hide Solution";
+  const graphDef = `
+    graph TD
+      ROOT["📌 ${cleanName}"]
+      ROOT --> B1["Core Axioms & Principles"]
+      ROOT --> B2["Mathematical Equations"]
+      ROOT --> B3["Exam Scoring Focus"]
+      ${formulas.length > 0 ? `B2 --> ${formulas.join('\n      B2 --> ')}` : 'B2 --> F0["Standard Formulation: y = f(x)"]'}
+      ${tips.length > 0 ? `B3 --> ${tips.join('\n      B3 --> ')}` : 'B3 --> T0["Specify SI Units & Assumptions"]'}
+  `;
 
   try {
-    const res = await fetch(`/api/questions/${qId}/solution?language=${state.uiLang}`, { method: "POST" });
-    if (!res.ok) throw new Error("Could not generate solution");
-    const data = await res.json();
-    const sol = data.solution || {};
+    if (window.mermaid) {
+      window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+      const uniqueId = "mermaidSvg_" + Math.random().toString(36).substring(2, 9);
+      const { svg } = await window.mermaid.render(uniqueId, graphDef);
+      container.innerHTML = svg;
+    } else {
+      container.innerHTML = `<div class="text-muted" style="font-size: 12px;">📌 ${escapeHtml(cleanName)} &rarr; Core Principles &rarr; Governing Formulas &rarr; Model Answer</div>`;
+    }
+  } catch (mErr) {
+    console.warn("Mermaid render error:", mErr);
+    container.innerHTML = `<div class="text-muted" style="font-size: 12px;">📌 ${escapeHtml(cleanName)} &rarr; Principles &rarr; Equations &rarr; Exam Application</div>`;
+  }
+}
 
-    const stepsHtml = (sol.step_by_step_solution || []).map(s => `<div>• ${escapeHtml(s)}</div>`).join("");
-    box.innerHTML = `
-      <div style="margin-bottom: 6px;"><b>📐 Formula / Principle:</b> ${escapeHtml(sol.key_formula || "")}</div>
-      <div style="margin-bottom: 6px;"><b>Step-by-Step Solution:</b><br/>${stepsHtml}</div>
-      <div style="color: #b45309;"><b>Examiner Tip:</b> ${escapeHtml(sol.examiner_tip || "")}</div>
-    `;
+// ============================================================================
+// Quick 3-Question Self-Test Controller
+// ============================================================================
+
+async function loadDrawerQuickQuiz(topicId, topicName) {
+  const box = document.getElementById("drawerQuizBox");
+  if (!box) return;
+
+  box.innerHTML = `<div class="progress-box"><div class="spinner-sm"></div><div class="progress-text">Preparing quick self-test...</div></div>`;
+
+  try {
+    const res = await fetch(`/api/topics/${topicId}/quiz?count=3&difficulty=medium`);
+    if (!res.ok) throw new Error("Could not load quick quiz");
+    const data = await res.json();
+    const quizList = data.quiz || [];
+
+    if (quizList.length === 0) {
+      box.innerHTML = `<div class="text-muted" style="font-size: 12px;">No quick quiz available for this topic yet. Read full notes to test yourself!</div>`;
+      return;
+    }
+
+    box.innerHTML = "";
+    quizList.slice(0, 3).forEach((item, qIdx) => {
+      const card = document.createElement("div");
+      card.className = "quiz-card-sm";
+      card.id = `drawerQuizItem_${qIdx}`;
+
+      const optionsHtml = (item.options || []).map((opt, optIdx) => `
+        <button type="button" class="quiz-opt-btn" onclick="handleDrawerQuizAnswer(${qIdx}, ${optIdx}, ${item.correct_index}, this, '${escapeHtml(item.explanation || "")}')">
+          <b>${String.fromCharCode(65 + optIdx)}.</b> ${escapeHtml(opt)}
+        </button>
+      `).join("");
+
+      card.innerHTML = `
+        <div class="quiz-q-title">Q${qIdx + 1}. ${escapeHtml(item.question)}</div>
+        <div class="quiz-opts-grid">${optionsHtml}</div>
+        <div class="quiz-feedback-box" id="drawerQuizFeedback_${qIdx}" style="display: none;"></div>
+      `;
+      box.appendChild(card);
+    });
+
     renderMath(box);
   } catch (err) {
-    box.innerHTML = `<div class="text-danger">Unable to load solution at this moment.</div>`;
+    box.innerHTML = `<div class="text-muted" style="font-size: 12px;">Quick quiz offline. Click "Read Complete Notes" below to study all concepts!</div>`;
   }
+}
+
+function handleDrawerQuizAnswer(qIdx, selectedIdx, correctIdx, btn, explanation) {
+  const card = document.getElementById(`drawerQuizItem_${qIdx}`);
+  if (!card) return;
+  const allBtns = card.querySelectorAll(".quiz-opt-btn");
+  allBtns.forEach(b => b.disabled = true);
+
+  const fbBox = document.getElementById(`drawerQuizFeedback_${qIdx}`);
+  if (selectedIdx === correctIdx) {
+    btn.classList.add("correct");
+    if (fbBox) {
+      fbBox.style.display = "block";
+      fbBox.style.background = "#dcfce7";
+      fbBox.style.color = "#15803d";
+      fbBox.innerHTML = `<b>✓ Correct!</b> ${explanation || "Excellent conceptual understanding!"}`;
+    }
+    confetti({ particleCount: 25, spread: 60, origin: { y: 0.8 } });
+  } else {
+    btn.classList.add("wrong");
+    if (allBtns[correctIdx]) allBtns[correctIdx].classList.add("correct");
+    if (fbBox) {
+      fbBox.style.display = "block";
+      fbBox.style.background = "#fee2e2";
+      fbBox.style.color = "#b91c1c";
+      fbBox.innerHTML = `<b>✗ Incorrect.</b> Correct Answer: <b>${String.fromCharCode(65 + correctIdx)}</b>. ${explanation || ""}`;
+    }
+  }
+}
+
+function markCurrentTopicDoneFromDrawer() {
+  if (!currentDrawerTopicData || !state.currentSubjectId) return;
+  const topicId = currentDrawerTopicData.topic_id;
+  const key = getChecklistKey(state.currentSubjectId);
+  const saved = JSON.parse(localStorage.getItem(key) || "{}");
+  saved[topicId] = true;
+  localStorage.setItem(key, JSON.stringify(saved));
+
+  if (state.currentSubjectData) {
+    renderChecklist(state.currentSubjectId, state.currentSubjectData.topics);
+  }
+
+  showToast(`Marked "${currentDrawerTopicData.topic_name}" as Mastered! 🎉`, "success");
+  confetti({ particleCount: 40, spread: 70, origin: { y: 0.7 } });
+  closeTopicDrawer();
 }
 
 function closeTopicDrawer() {
+  if (isSpeakingVoice && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    updateVoiceButton(false);
+  }
   const modal = document.getElementById("topicDrawerModal");
   if (modal) modal.style.display = "none";
+}
+
+// ============================================================================
+// 3 Smart PDF Export Modes Dropdown & Downloads
+// ============================================================================
+
+function toggleExportMenu(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById("exportMenuDropdown");
+  if (!dropdown) return;
+  const isHidden = dropdown.style.display === "none" || !dropdown.style.display;
+  dropdown.style.display = isHidden ? "flex" : "none";
+}
+
+document.addEventListener("click", (e) => {
+  const group = document.querySelector(".dropdown-export-group");
+  const dropdown = document.getElementById("exportMenuDropdown");
+  if (dropdown && group && !group.contains(e.target)) {
+    dropdown.style.display = "none";
+  }
+});
+
+function exportStudyPlanPdfMode(mode = "master") {
+  const dropdown = document.getElementById("exportMenuDropdown");
+  if (dropdown) dropdown.style.display = "none";
+
+  if (!state.currentSubjectId) {
+    showToast("Please select or load a subject first.", "warning");
+    return;
+  }
+  const url = `/api/subjects/${state.currentSubjectId}/export-pdf?language=${state.uiLang}&mode=${mode}`;
+  window.open(url, "_blank");
 }
 
 function openTopicNotesFromDrawer() {

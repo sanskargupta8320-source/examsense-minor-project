@@ -821,9 +821,35 @@ Output strictly valid JSON with this exact schema:
         ext = os.path.splitext(file_path)[1].lower()
         try:
             if ext == ".pdf":
-                uploaded_gemini_file = genai_client.upload_file(path=file_path, mime_type="application/pdf")
-                contents = [uploaded_gemini_file, single_prompt]
-                data = call_gemini_json(prompt=single_prompt, contents=contents, timeout=40)
+                # Check for scanned PDF (CamScanner, photos of paper converted to PDF, or empty text)
+                is_scanned = len(paper_text.strip()) < 60
+                if is_scanned:
+                    try:
+                        from app.services.pdf_service import render_pdf_pages_as_images
+                        page_images = render_pdf_pages_as_images(file_path, max_pages=4)
+                        if page_images:
+                            logger.info(f"Using Gemini Multimodal Vision on {len(page_images)} rendered scanned PDF page images...")
+                            contents = [*page_images, single_prompt]
+                            data = call_gemini_json(prompt=single_prompt, contents=contents, timeout=45)
+                    except Exception as scan_err:
+                        logger.warning(f"Vision extraction on scanned PDF images failed: {scan_err}")
+
+                if not data:
+                    try:
+                        if hasattr(genai_client, "upload_file"):
+                            uploaded_gemini_file = genai_client.upload_file(path=file_path, mime_type="application/pdf")
+                            contents = [uploaded_gemini_file, single_prompt]
+                            data = call_gemini_json(prompt=single_prompt, contents=contents, timeout=40)
+                    except Exception as up_err:
+                        logger.info(f"Direct file upload skipped ({up_err}), falling back to rendered page images...")
+                        try:
+                            from app.services.pdf_service import render_pdf_pages_as_images
+                            page_images = render_pdf_pages_as_images(file_path, max_pages=3)
+                            if page_images:
+                                contents = [*page_images, single_prompt]
+                                data = call_gemini_json(prompt=single_prompt, contents=contents, timeout=45)
+                        except Exception:
+                            pass
             elif ext in [".jpg", ".jpeg", ".png", ".webp"]:
                 from PIL import Image
                 img = Image.open(file_path)

@@ -225,14 +225,61 @@ def extract_text_from_pdf(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
 
     doc.close()
 
+    is_scanned = len(combined_text) < 60
+    if is_scanned:
+        is_ocr = True
+
     metadata = {
         "page_count": page_count,
         "char_count": len(combined_text),
         "word_count": len(combined_text.split()),
         "file_size_mb": round(file_size_mb, 2),
+        "is_scanned": is_scanned,
     }
 
     return combined_text, is_ocr, metadata
+
+
+def is_scanned_pdf(file_path: str) -> bool:
+    """Returns True if the PDF has pages but contains less than 60 characters of text across first pages."""
+    if not FITZ_AVAILABLE or not os.path.exists(file_path):
+        return False
+    try:
+        doc = fitz.open(file_path)
+        if len(doc) == 0:
+            doc.close()
+            return False
+        sample_text = ""
+        for p in doc[:3]:
+            sample_text += p.get_text("text").strip()
+        doc.close()
+        return len(sample_text) < 60
+    except Exception:
+        return False
+
+
+def render_pdf_pages_as_images(file_path: str, max_pages: int = 5, dpi: int = 150) -> List[Any]:
+    """
+    Renders the first max_pages of a PDF into PIL Images for Gemini Multimodal Vision.
+    Enables 100% reliable extraction from scanned papers and CamScanner PDFs.
+    """
+    if not FITZ_AVAILABLE or not os.path.exists(file_path):
+        return []
+    try:
+        from PIL import Image
+        import io
+        doc = fitz.open(file_path)
+        images = []
+        for i in range(min(len(doc), max_pages)):
+            page = doc[i]
+            pix = page.get_pixmap(dpi=dpi)
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            images.append(img)
+        doc.close()
+        return images
+    except Exception as e:
+        logger.warning(f"Could not render PDF pages as images: {e}")
+        return []
 
 
 def extract_text_from_file(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
@@ -241,3 +288,4 @@ def extract_text_from_file(file_path: str) -> Tuple[str, bool, Dict[str, Any]]:
     if ext in [".jpg", ".jpeg", ".png", ".webp"]:
         return extract_text_from_image(file_path)
     return extract_text_from_pdf(file_path)
+

@@ -2803,3 +2803,294 @@ body.theme-dark .badge-explore {
   }
 }
 
+/* ==========================================================================
+   3 Smart PDF Export Modes Dropdown
+   ========================================================================== */
+.dropdown-export-group {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-caret {
+  font-size: 10px;
+  margin-left: 6px;
+  transition: transform 0.2s ease;
+}
+
+.dropdown-menu-export {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 310px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(16px);
+  z-index: 100;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-menu-export a {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+}
+
+.dropdown-menu-export a:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.dropdown-menu-export .menu-icon {
+  font-size: 18px;
+  margin-top: 1px;
+}
+
+.dropdown-menu-export .menu-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-color, #1e293b);
+}
+
+.dropdown-menu-export .menu-desc {
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color, #e2e8f0);
+  margin: 4px 0;
+}
+
+/* ==========================================================================
+   Estimated Exam Marks Coverage Meter
+   ========================================================================== */
+.marks-coverage-meter {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.coverage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.coverage-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-color, #1e293b);
+}
+
+.coverage-value {
+  font-size: 15px;
+  font-weight: 800;
+  color: #4f46e5;
+  background: rgba(79, 70, 229, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.coverage-status-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.badge-neutral { background: #f1f5f9; color: #475569; }
+.badge-danger { background: #fee2e2; color: #dc2626; }
+.badge-warning { background: #fef3c7; color: #d97706; }
+.badge-success { background: #d1fae5; color: #059669; }
+.badge-distinction { background: linear-gradient(135deg, #e0e7ff, #ede9fe); color: #4338ca; border: 1px solid #c7d2fe; }
+
+.coverage-progress-bar {
+  position: relative;
+  height: 12px;
+  background: rgba(226, 232, 240, 0.8);
+  border-radius: 8px;
+  overflow: visible;
+  margin: 10px 0 16px 0;
+}
+
+.coverage-progress-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+}
+
+.coverage-marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: #64748b;
+  z-index: 2;
+}
+
+.coverage-marker span {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.passing-marker { background: #f59e0b; }
+.passing-marker span { color: #d97706; }
+.distinction-marker { background: #6366f1; }
+.distinction-marker span { color: #4f46e5; }
+
+.coverage-tip {
+  font-size: 11.5px;
+  color: var(--text-muted, #64748b);
+  margin-top: 6px;
+}
+
+/* ==========================================================================
+   Voice Explanation & Interactive Topic Study Enhancements
+   ========================================================================== */
+.drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#btnVoiceExplain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+#btnVoiceExplain.speaking {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  animation: pulseSpeaking 1.5s infinite;
+}
+
+@keyframes pulseSpeaking {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); }
+}
+
+.drawer-mermaid-container {
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-graph svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Quick 3-Question Self-Test */
+.drawer-quiz-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quiz-card-sm {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.quiz-q-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-color, #1e293b);
+  margin-bottom: 8px;
+}
+
+.quiz-opts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .quiz-opts-grid { grid-template-columns: 1fr; }
+}
+
+.quiz-opt-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #334155;
+}
+
+.quiz-opt-btn:hover:not([disabled]) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.quiz-opt-btn.correct {
+  background: #dcfce7 !important;
+  border-color: #22c55e !important;
+  color: #15803d !important;
+  font-weight: 700;
+}
+
+.quiz-opt-btn.wrong {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
+}
+
+.quiz-feedback-box {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  animation: fadeIn 0.2s ease;
+}
+
+

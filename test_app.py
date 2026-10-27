@@ -710,13 +710,67 @@ def run_tests():
     master_pdf_bytes = res_master_pdf.content
     assert len(master_pdf_bytes) > 25000, f"Expected comprehensive multi-page PDF (>25KB), got {len(master_pdf_bytes)} bytes"
     print(f"  -> Generated comprehensive Master Study & Solution Guide PDF: {len(master_pdf_bytes):,} bytes")
+    # -------------------------------------------------------------
+    # Test 31: Scanned PDF Detection & Multimodal Vision Page Rendering
+    # -------------------------------------------------------------
+    print("\n[Test 31] Scanned/Image PDF Detection & Multimodal Vision Page Rendering...")
+    import fitz
+    import tempfile
+    from app.services.pdf_service import is_scanned_pdf, render_pdf_pages_as_images
+
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)  # blank A4 page simulating a scanned document
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
+        scanned_temp_path = tf.name
+    doc.save(scanned_temp_path)
+    doc.close()
+
+    try:
+        # Detect that page text is empty (< 60 chars)
+        is_scanned = is_scanned_pdf(scanned_temp_path)
+        assert is_scanned is True, "Failed to identify scanned/image PDF with empty text"
+        print(f"  -> Successfully detected scanned PDF: is_scanned={is_scanned}")
+
+        # Render page as PIL image for Multimodal Vision
+        rendered_images = render_pdf_pages_as_images(scanned_temp_path, max_pages=1, dpi=100)
+        assert len(rendered_images) == 1, f"Expected 1 rendered image, got {len(rendered_images)}"
+        assert hasattr(rendered_images[0], "size"), "Rendered item must be a valid PIL Image"
+        print(f"  -> Successfully rendered page to PIL Image: size={rendered_images[0].size}, mode={rendered_images[0].mode}")
+    finally:
+        if os.path.exists(scanned_temp_path):
+            os.remove(scanned_temp_path)
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 32: Smart Export Mode 2 - 1-Night Before Exam Cheat-Sheet
+    # -------------------------------------------------------------
+    print(f"\n[Test 32] Smart Export Mode 2: 1-Night Cheat-Sheet (/api/subjects/{college_id}/export-pdf?mode=cheatsheet)...")
+    res_cheat = client.get(f"/api/subjects/{college_id}/export-pdf?mode=cheatsheet")
+    assert res_cheat.status_code == 200, f"Cheat-sheet export failed: {res_cheat.text}"
+    assert res_cheat.headers.get("content-type") == "application/pdf"
+    assert res_cheat.content.startswith(b"%PDF")
+    assert len(res_cheat.content) > 10000, f"Expected Cheat-Sheet PDF > 10KB, got {len(res_cheat.content)} bytes"
+    print(f"  -> Generated 1-Night Before Exam Cheat-Sheet PDF: {len(res_cheat.content):,} bytes")
+    print("  PASSED ✅")
+
+    # -------------------------------------------------------------
+    # Test 33: Smart Export Mode 3 - AI Predicted Mock Paper + Answer Key
+    # -------------------------------------------------------------
+    print(f"\n[Test 33] Smart Export Mode 3: Predicted Mock Exam Paper (/api/subjects/{college_id}/export-pdf?mode=mock)...")
+    res_mock = client.get(f"/api/subjects/{college_id}/export-pdf?mode=mock")
+    assert res_mock.status_code == 200, f"Mock paper export failed: {res_mock.text}"
+    assert res_mock.headers.get("content-type") == "application/pdf"
+    assert res_mock.content.startswith(b"%PDF")
+    assert len(res_mock.content) > 10000, f"Expected Mock Exam PDF > 10KB, got {len(res_mock.content)} bytes"
+    print(f"  -> Generated AI Predicted Mock Exam Paper & Answer Key PDF: {len(res_mock.content):,} bytes")
     print("  PASSED ✅")
 
     print("\n" + "=" * 65)
-    print("🎉 ALL 30/30 COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS! 💯")
+    print("🎉 ALL 33/33 COMPREHENSIVE TESTS PASSED WITH 100% SUCCESS! 💯")
     print("=" * 65)
 
 
 if __name__ == "__main__":
     run_tests()
+
 

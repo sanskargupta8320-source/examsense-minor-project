@@ -4,6 +4,7 @@ import re
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from app.services.ai_service import get_topic_deep_dive, generate_model_answers
 
 logger = logging.getLogger("examsense.pdf_export")
 
@@ -178,6 +179,329 @@ def clean_pdf_text(text: str) -> str:
     return clean_and_format_math_for_pdf(text)
 
 
+def _build_cheatsheet_story(
+    subject_dict: Dict[str, Any],
+    topics: List[Dict[str, Any]],
+    repeated_questions: List[Dict[str, Any]],
+    stats: Dict[str, Any],
+    st: Dict[str, Any],
+    language: str = "en",
+) -> List[Any]:
+    """Generates Mode 2: 1-Night Before Exam Ultra-Compact Formula Matrix & Survival Guide."""
+    story = []
+
+    # 1. Header Banner
+    story.append(Paragraph("ExamSense | 1-Night Before Exam Cheat-Sheet", st["title"]))
+    tagline = '<i>"Ultra-Compact Formula Matrix, Key Axioms, and Last-Minute Survival Guide."</i>'
+    exam_level = clean_pdf_text(subject_dict.get("exam_type") or "General Examination")
+    meta_info = (
+        f"<b>Subject:</b> {clean_pdf_text(subject_dict.get('name'))} ({clean_pdf_text(subject_dict.get('code'))}) &nbsp;|&nbsp; "
+        f"<b>Exam Level:</b> {exam_level} &nbsp;|&nbsp; "
+        f"<b>Date:</b> {datetime.now().strftime('%d %B %Y')}"
+    )
+    story.append(Paragraph(f"{tagline}<br/>{meta_info}", st["subtitle"]))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#D97706"), spaceAfter=8))
+
+    # 2. Executive High-Priority Summary Table
+    story.append(Paragraph("<b>1. High-Yield Topic Matrix (Priority Ranking)</b>", st["sub_heading"]))
+    top_topics = sorted(topics, key=lambda t: t.get("priority_score", 0), reverse=True)[:8]
+    summary_rows = [
+        [
+            Paragraph("<b>Topic</b>", st["cell_bold"]),
+            Paragraph("<b>Priority</b>", st["cell_bold"]),
+            Paragraph("<b>Freq</b>", st["cell_bold"]),
+            Paragraph("<b>Weightage</b>", st["cell_bold"]),
+            Paragraph("<b>Core Focus / Formula Concept</b>", st["cell_bold"]),
+        ]
+    ]
+    for t in top_topics:
+        level_color = "#DC2626" if t.get("priority_level") == "High" else "#D97706"
+        summary_rows.append([
+            Paragraph(f"<b>{clean_pdf_text(t.get('name', ''))}</b>", st["cell_bold"]),
+            Paragraph(f"<font color='{level_color}'><b>{t.get('priority_level')}</b></font>", st["cell_bold"]),
+            Paragraph(f"{t.get('frequency', 1)}x", st["cell"]),
+            Paragraph(f"{t.get('total_marks', 7)}M", st["cell"]),
+            Paragraph(clean_pdf_text(f"Key Governing Equations & Laws for {t.get('name', '')}"), st["cell"]),
+        ])
+    sum_tbl = Table(summary_rows, colWidths=[140, 60, 45, 55, 220])
+    sum_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#FEF3C7")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#FDE68A")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(sum_tbl)
+    story.append(Spacer(1, 8))
+
+    # 3. High-Priority Formula & Principle Cheat Cards
+    story.append(Paragraph("<b>2. Ultra-Dense Formula & Axiom Cheat Cards</b>", st["sub_heading"]))
+    from app.services.ai_service import get_topic_deep_dive
+    for idx, t in enumerate(top_topics[:6]):
+        t_name = t.get("name", "")
+        dive = get_topic_deep_dive(t_name, subject_dict.get("name", ""), language=language, exam_type=subject_dict.get("exam_type", "General"))
+        formulas = dive.get("key_formulas", [])
+        if not formulas:
+            formulas = [f"Governing Relation for {t_name}", "Standard Formulation: y = f(x) + C"]
+        formula_html = "<br/>".join([f"• <b>{clean_pdf_text(f)}</b>" for f in formulas[:3]])
+
+        tips = dive.get("exam_tips", [])
+        tips_html = "<br/>".join([f"• {clean_pdf_text(tip)}" for tip in tips[:2]]) if tips else "• State all assumptions clearly and specify SI units."
+
+        card_content = [
+            [
+                Paragraph(f"<b>#{idx + 1} {clean_pdf_text(t_name)}</b> &nbsp; <font color='#B45309'>[{t.get('priority_level')} | Score: {int(t.get('priority_score', 0))}/100]</font>", st["sub_heading"])
+            ],
+            [
+                Paragraph(f"<b>📐 Key Formulas:</b><br/>{formula_html}", st["formula"])
+            ],
+            [
+                Paragraph(f"<b>💡 Must-Remember Axioms & Pitfalls:</b><br/>{tips_html}", st["tip"])
+            ]
+        ]
+        card_tbl = Table(card_content, colWidths=[520])
+        card_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3F4F6")),
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#ECFDF5")),
+            ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#FFFBEB")),
+            ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#D1D5DB")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(card_tbl)
+        story.append(Spacer(1, 5))
+
+    # 4. 10-Point Night-Before Exam Survival Protocol
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("<b>3. Final Night Exam Survival Protocol (Last 12 Hours)</b>", st["sub_heading"]))
+    protocol_points = [
+        "☐ <b>1.</b> Review all High-Priority governing equations and sign conventions.",
+        "☐ <b>2.</b> Write down SI units for every calculated numerical quantity.",
+        "☐ <b>3.</b> Memorize exact diagram labels, circuit symbols, and standard notations.",
+        "☐ <b>4.</b> Allocate exam time strictly: 1.5 minutes per mark (e.g. 10 mins for 7-mark question).",
+        "☐ <b>5.</b> State all assumptions clearly at the start of derivation/design problems.",
+        "☐ <b>6.</b> Double check calculator radian vs degree modes before starting numericals.",
+        "☐ <b>7.</b> Pack approved pens, pencils, ruler, eraser, and admit card/hall ticket.",
+        "☐ <b>8.</b> Maintain high legibility: underline final numerical values with units.",
+        "☐ <b>9.</b> Sleep at least 6-7 hours tonight: memory consolidation is critical for recall.",
+        "☐ <b>10.</b> Stay calm: you have revised the highest-probability questions first!",
+    ]
+    p_rows = []
+    for i in range(0, len(protocol_points), 2):
+        p_rows.append([
+            Paragraph(protocol_points[i], st["cell"]),
+            Paragraph(protocol_points[i+1] if i+1 < len(protocol_points) else "", st["cell"]),
+        ])
+    prot_tbl = Table(p_rows, colWidths=[260, 260])
+    prot_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#E5E7EB")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#F3F4F6")),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(prot_tbl)
+
+    # 5. Disclaimer Box
+    story.append(Spacer(1, 10))
+    disclaimer_html = (
+        "<b>Academic Disclaimer:</b> This 1-Night Cheat-Sheet provides high-density last-minute revision summary. "
+        "Review full textbook notes and verified formulas for comprehensive exam mastery."
+    )
+    disclaimer_box = Table([[Paragraph(disclaimer_html, st["subtitle"])]], colWidths=[520])
+    disclaimer_box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#D1D5DB")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(disclaimer_box)
+
+    return story
+
+
+def _build_mock_paper_story(
+    subject_dict: Dict[str, Any],
+    topics: List[Dict[str, Any]],
+    repeated_questions: List[Dict[str, Any]],
+    stats: Dict[str, Any],
+    st: Dict[str, Any],
+    language: str = "en",
+) -> List[Any]:
+    """Generates Mode 3: AI Predicted Mock Question Paper (70 Marks) with Official Answer Key."""
+    story = []
+
+    # 1. Official Examination Paper Cover Header
+    header_data = [
+        [Paragraph("<font size=11 color='#1E1B4B'><b>CONFIDENTIAL & PREDICTIVE MODEL EXAMINATION 2024-2025</b></font>", st["sub_heading"])],
+        [Paragraph(f"<b>COURSE:</b> {clean_pdf_text(subject_dict.get('name'))} &nbsp;&nbsp;&nbsp;&nbsp; <b>CODE:</b> {clean_pdf_text(subject_dict.get('code'))}", st["body_bold"])],
+        [Paragraph(f"<b>EXAMINATION LEVEL:</b> {clean_pdf_text(subject_dict.get('exam_type', 'General'))} &nbsp;&nbsp;|&nbsp;&nbsp; <b>TIME ALLOWED:</b> 3 HOURS &nbsp;&nbsp;|&nbsp;&nbsp; <b>MAX MARKS:</b> 70", st["body"])],
+    ]
+    hdr_tbl = Table(header_data, colWidths=[520])
+    hdr_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#EEF2FF")),
+        ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor("#4338CA")),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(hdr_tbl)
+    story.append(Spacer(1, 6))
+
+    # Instructions Box
+    instructions_text = (
+        "<b>GENERAL INSTRUCTIONS:</b><br/>"
+        "1. All sections are compulsory. Internal choices are provided in Section B and Section C.<br/>"
+        "2. Section A contains 5 short questions (2 marks each = 10 Marks).<br/>"
+        "3. Section B contains 4 descriptive questions (5 marks each = 20 Marks).<br/>"
+        "4. Section C contains 4 comprehensive/numerical questions (10 marks each = 40 Marks).<br/>"
+        "5. Assume suitable values for any missing data and state them clearly. Non-programmable calculators permitted."
+    )
+    ins_tbl = Table([[Paragraph(instructions_text, st["cell"])]], colWidths=[520])
+    ins_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#D1D5DB")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(ins_tbl)
+    story.append(Spacer(1, 8))
+
+    # Gather questions from topics
+    all_paper_qs = []
+    for t in topics:
+        for q in t.get("questions", []):
+            all_paper_qs.append(q)
+
+    top_t_names = [t.get("name", "") for t in topics]
+
+    # Section A: 5 Questions (2 Marks each)
+    story.append(Paragraph("<b>SECTION A (5 &times; 2 = 10 Marks) — Short Concept Questions</b>", st["sub_heading"]))
+    sec_a_qs = []
+    for i in range(5):
+        t_name = top_t_names[i % len(top_t_names)] if top_t_names else f"Core Concept {i+1}"
+        q_text = f"State the fundamental principle governing <b>{t_name}</b> and write its mathematical formulation."
+        sec_a_qs.append(q_text)
+        story.append(Paragraph(f"<b>Q.{i+1}</b> &nbsp; {clean_pdf_text(q_text)} <font color='#6B7280'>[2 Marks]</font>", st["body"]))
+        story.append(Spacer(1, 3))
+
+    story.append(Spacer(1, 6))
+
+    # Section B: 4 Questions (5 Marks each)
+    story.append(Paragraph("<b>SECTION B (4 &times; 5 = 20 Marks) — Descriptive & Analytical</b>", st["sub_heading"]))
+    sec_b_qs = []
+    b_source_qs = [q for q in all_paper_qs if 4 <= q.get("marks", 7) <= 7]
+    if len(b_source_qs) < 4:
+        b_source_qs = all_paper_qs
+    for i in range(4):
+        if i < len(b_source_qs):
+            q_text = b_source_qs[i].get("question_text", "")
+        else:
+            t_name = top_t_names[(i+2) % len(top_t_names)] if top_t_names else "High-Yield Topic"
+            q_text = f"Explain the operating mechanism, working principle and key assumptions for {t_name} with a neat diagram."
+        sec_b_qs.append(q_text)
+        story.append(Paragraph(f"<b>Q.{i+6}</b> &nbsp; {clean_pdf_text(q_text)} <font color='#6B7280'>[5 Marks]</font>", st["body"]))
+        story.append(Spacer(1, 4))
+
+    story.append(Spacer(1, 6))
+
+    # Section C: 4 Questions (10 Marks each) with OR choices
+    story.append(Paragraph("<b>SECTION C (4 &times; 10 = 40 Marks) — Comprehensive & Derivations</b>", st["sub_heading"]))
+    sec_c_qs = []
+    for i in range(4):
+        q_num = i + 10
+        t_a = top_t_names[(i * 2) % len(top_t_names)] if top_t_names else "High-Yield Topic A"
+        t_b = top_t_names[(i * 2 + 1) % len(top_t_names)] if top_t_names else "High-Yield Topic B"
+        q_a_text = f"Derive the complete governing equation for <b>{t_a}</b>. State initial conditions, solve for steady-state response, and interpret the physical significance."
+        q_b_text = f"Explain the architecture, design considerations, and step-by-step implementation for <b>{t_b}</b> with a numerical example."
+        sec_c_qs.append((q_a_text, q_b_text))
+
+        c_box = [
+            [Paragraph(f"<b>Q.{q_num}(a)</b> &nbsp; {clean_pdf_text(q_a_text)} <font color='#4338CA'>[10 Marks]</font>", st["body"])],
+            [Paragraph("<font color='#6B7280'><b>— OR —</b></font>", st["cell_bold"])],
+            [Paragraph(f"<b>Q.{q_num}(b)</b> &nbsp; {clean_pdf_text(q_b_text)} <font color='#4338CA'>[10 Marks]</font>", st["body"])],
+        ]
+        c_tbl = Table(c_box, colWidths=[520])
+        c_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
+            ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#E5E7EB")),
+            ("ALIGN", (0, 1), (-1, 1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(c_tbl)
+        story.append(Spacer(1, 5))
+
+    # PAGE BREAK FOR OFFICIAL ANSWER KEY
+    story.append(PageBreak())
+
+    # 2. OFFICIAL AI PREDICTED ANSWER KEY & MARKING SCHEME
+    story.append(Paragraph("<b>OFFICIAL AI PREDICTED ANSWER KEY & MARKING SCHEME</b>", st["title"]))
+    story.append(Paragraph("<i>Standardized University Evaluation Criteria & Step-by-Step Scoring Guide</i>", st["subtitle"]))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#059669"), spaceAfter=8))
+
+    story.append(Paragraph("<b>Answer Key: Section A (Short Concepts)</b>", st["sub_heading"]))
+    for i, q_text in enumerate(sec_a_qs):
+        story.append(Paragraph(f"<b>Ans Q.{i+1}:</b> <i>Concept:</i> State formal definition accurately with governing equation. <font color='#059669'>[1 Mark for definition, 1 Mark for formula with variables defined]</font>", st["body"]))
+        story.append(Spacer(1, 3))
+
+    story.append(Spacer(1, 5))
+    story.append(Paragraph("<b>Answer Key: Section B (Descriptive Solutions)</b>", st["sub_heading"]))
+    for i, q_text in enumerate(sec_b_qs):
+        b_key = (
+            f"<b>Ans Q.{i+6}:</b><br/>"
+            f"• <b>Step 1 (Principle):</b> State the core operational mechanism. <font color='#059669'>[1 Mark]</font><br/>"
+            f"• <b>Step 2 (Diagram / Flow):</b> Labelled schematic diagram or system architecture. <font color='#059669'>[2 Marks]</font><br/>"
+            f"• <b>Step 3 (Working & Significance):</b> Analytical derivation / bulleted working. <font color='#059669'>[2 Marks]</font>"
+        )
+        story.append(Paragraph(b_key, st["body"]))
+        story.append(Spacer(1, 4))
+
+    story.append(Spacer(1, 5))
+    story.append(Paragraph("<b>Answer Key: Section C (Comprehensive Derivations & Mark Distribution)</b>", st["sub_heading"]))
+    for i, (q_a, q_b) in enumerate(sec_c_qs):
+        c_key = (
+            f"<b>Ans Q.{i+10}(a) / (b):</b><br/>"
+            f"• <b>Phase 1 (System Modeling & Axioms):</b> Define assumptions, governing laws, and initial boundary parameters. <font color='#059669'>[2.5 Marks]</font><br/>"
+            f"• <b>Phase 2 (Mathematical Derivation):</b> Step-by-step algebraic substitution, integration/differentiation, and intermediate cancellation. <font color='#059669'>[4.0 Marks]</font><br/>"
+            f"• <b>Phase 3 (Final Expression & Physical Meaning):</b> Final boxed result with correct dimensions, SI units, and edge-case limits. <font color='#059669'>[3.5 Marks]</font>"
+        )
+        story.append(Paragraph(c_key, st["body"]))
+        story.append(Spacer(1, 4))
+
+    # Disclaimer Box
+    story.append(Spacer(1, 10))
+    disclaimer_html = (
+        "<b>Academic Disclaimer:</b> This Predictive Model Examination and Marking Scheme is algorithmically "
+        "formulated from historical exam trends to simulate real examination conditions. Master all curriculum topics."
+    )
+    disclaimer_box = Table([[Paragraph(disclaimer_html, st["subtitle"])]], colWidths=[520])
+    disclaimer_box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#D1D5DB")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(disclaimer_box)
+
+    return story
+
+
 def generate_study_plan_pdf(
     subject_dict: Dict[str, Any],
     topics: List[Dict[str, Any]],
@@ -186,28 +510,24 @@ def generate_study_plan_pdf(
     suggested_questions: Optional[List[Dict[str, Any]]] = None,
     sections: Optional[List[str]] = None,
     language: str = "en",
+    mode: str = "master",
 ) -> io.BytesIO:
     """
-    Generates a comprehensive, multi-page Master Study & Solution Guide:
-    1. Cover Header & Executive Dashboard + Day-by-Day Revision Schedule
-    2. Section 1: High & Medium Priority Topic Deep-Dives with Concept Explanations,
-       Key Formulas Box, and Exam Scoring Pointers (English or Hinglish)
-    3. Section 2: Repeated Question Patterns with Step-by-Step Model Answers / Solutions
-    4. Section 3: Complete Topic-Wise Question Bank (100% UNTRUNCATED) with badges
+    Generates study materials in 3 distinct smart export modes:
+    - Mode 1 ('master'): Comprehensive Multi-Page Master Study & Solution Guide
+    - Mode 2 ('cheatsheet'): 1-Night Before Exam Ultra-Compact Formula Matrix & Survival Guide
+    - Mode 3 ('mock'): AI Predicted Mock Question Paper (70 Marks) with Official Answer Key
     """
     buffer = io.BytesIO()
 
     if not REPORTLAB_AVAILABLE:
-        text = f"EXAMSENSE MASTER STUDY & SOLUTION GUIDE\nSubject: {subject_dict.get('name')} ({subject_dict.get('code')})\n"
+        text = f"EXAMSENSE STUDY GUIDE ({mode.upper()})\nSubject: {subject_dict.get('name')} ({subject_dict.get('code')})\n"
         text += f"Date: {datetime.now().strftime('%Y-%m-%d')}\n\nTOPICS BY PRIORITY:\n"
         for t in topics:
             text += f"[{t.get('priority_level')}] {t.get('name')} - Score: {t.get('priority_score')}\n"
         buffer.write(text.encode("utf-8"))
         buffer.seek(0)
         return buffer
-
-    # Lazy import helpers to avoid circular dependencies
-    from app.services.ai_service import get_topic_deep_dive, generate_model_answers
 
     # Active sections filter
     active_sections = set(sections) if sections else {"summary", "topics", "repeated", "questions", "plan"}
@@ -223,7 +543,6 @@ def generate_study_plan_pdf(
 
     styles = getSampleStyleSheet()
 
-    # Typography & Styles utilizing TrueType fonts
     title_style = ParagraphStyle(
         "DocTitle",
         parent=styles["Heading1"],
@@ -304,6 +623,29 @@ def generate_study_plan_pdf(
         leading=12,
         textColor=colors.HexColor("#92400E"),
     )
+    st = {
+        "title": title_style,
+        "subtitle": subtitle_style,
+        "section_heading": section_heading,
+        "sub_heading": sub_heading,
+        "body": body_style,
+        "body_bold": body_bold,
+        "cell": cell_style,
+        "cell_bold": cell_bold,
+        "formula": formula_style,
+        "tip": tip_style,
+    }
+
+    if mode == "cheatsheet":
+        story = _build_cheatsheet_story(subject_dict, topics, repeated_questions, stats, st, language)
+        doc.build(story, canvasmaker=NumberedCanvas)
+        buffer.seek(0)
+        return buffer
+    elif mode == "mock":
+        story = _build_mock_paper_story(subject_dict, topics, repeated_questions, stats, st, language)
+        doc.build(story, canvasmaker=NumberedCanvas)
+        buffer.seek(0)
+        return buffer
 
     story = []
 

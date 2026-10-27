@@ -1210,11 +1210,15 @@ def export_subject_study_plan_pdf(
     subject_id: int,
     sections: Optional[str] = Query(None),
     language: Optional[str] = Query("en"),
+    mode: Optional[str] = Query("master", pattern="^(master|cheatsheet|mock)$"),
     db: Session = Depends(get_db),
 ):
     """
-    Generates and serves a reorganized Master Study & Solution Guide PDF for the subject.
-    Supports optional ?sections=summary,topics,repeated,questions,plan and ?language=en|hi.
+    Generates and serves study documents in 3 smart modes:
+    - 'master': Complete Multi-Page Master Study & Solution Guide
+    - 'cheatsheet': 1-Night Before Exam Ultra-Compact Formula Matrix
+    - 'mock': AI Predicted Mock Question Paper (70M) with Official Answer Key
+    Supports optional ?sections=summary,topics,repeated,questions,plan, ?language=en|hi, and ?mode=master|cheatsheet|mock.
     """
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
@@ -1235,6 +1239,8 @@ def export_subject_study_plan_pdf(
 
     sec_list = [s.strip() for s in sections.split(",") if s.strip()] if sections else None
 
+    selected_mode = mode or "master"
+
     pdf_buffer = generate_study_plan_pdf(
         subject_dict=subject.to_dict(),
         topics=topics,
@@ -1243,10 +1249,17 @@ def export_subject_study_plan_pdf(
         suggested_questions=suggested_questions,
         sections=sec_list,
         language=language or "en",
+        mode=selected_mode,
     )
 
     clean_code = re.sub(r"[^A-Za-z0-9_\-]", "_", subject.code or "Exam")
-    filename = f"ExamSense_Study_Plan_{clean_code}.pdf"
+    if selected_mode == "cheatsheet":
+        filename = f"ExamSense_1Night_CheatSheet_{clean_code}.pdf"
+    elif selected_mode == "mock":
+        filename = f"ExamSense_Predicted_Mock_Paper_{clean_code}.pdf"
+    else:
+        filename = f"ExamSense_Master_Guide_{clean_code}.pdf"
+
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",

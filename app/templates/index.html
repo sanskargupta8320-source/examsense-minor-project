@@ -23,6 +23,9 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
+  <!-- Mermaid.js for interactive concept flowcharts and mind-maps -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+
   <!-- Stylesheet -->
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -254,10 +257,46 @@
         </div>
 
         <div class="subject-actions-col">
-          <button class="btn btn-success" id="btnDownloadPDF" onclick="openCustomizePdfModal()">
-            <span class="icon">📥</span>
-            <span id="dashDownloadPdfBtnText">Download Study Plan (PDF)</span>
-          </button>
+          <!-- 3 Smart PDF Export Modes Dropdown -->
+          <div class="dropdown-export-group">
+            <button class="btn btn-success" id="btnDownloadPDF" onclick="toggleExportMenu(event)">
+              <span class="icon">📥</span>
+              <span id="dashDownloadPdfBtnText">Download Study PDF</span>
+              <span class="dropdown-caret">▼</span>
+            </button>
+            <div class="dropdown-menu-export" id="exportMenuDropdown" style="display: none;">
+              <a href="javascript:void(0)" onclick="exportStudyPlanPdfMode('master')">
+                <span class="menu-icon">📘</span>
+                <div>
+                  <div class="menu-title">Master Study &amp; Solution Book</div>
+                  <div class="menu-desc">Full explanations, formulas, PYQs &amp; step-by-step solutions</div>
+                </div>
+              </a>
+              <a href="javascript:void(0)" onclick="exportStudyPlanPdfMode('cheatsheet')">
+                <span class="menu-icon">⚡</span>
+                <div>
+                  <div class="menu-title">1-Night Before Exam Cheat-Sheet</div>
+                  <div class="menu-desc">Ultra-compact formula matrix, axioms &amp; survival protocol</div>
+                </div>
+              </a>
+              <a href="javascript:void(0)" onclick="exportStudyPlanPdfMode('mock')">
+                <span class="menu-icon">📝</span>
+                <div>
+                  <div class="menu-title">AI Predicted Mock Exam Paper</div>
+                  <div class="menu-desc">70M university exam simulation + Official Answer Key</div>
+                </div>
+              </a>
+              <div class="dropdown-divider"></div>
+              <a href="javascript:void(0)" onclick="openCustomizePdfModal()">
+                <span class="menu-icon">⚙️</span>
+                <div>
+                  <div class="menu-title">Customize Sections PDF...</div>
+                  <div class="menu-desc">Select specific sections before exporting</div>
+                </div>
+              </a>
+            </div>
+          </div>
+
           <button class="btn btn-primary-gradient" id="btnDownloadRichPDF" onclick="exportRichMathJaxTextbookPdf()" title="Render complete study guide with full KaTeX/MathJax equations and export high-resolution PDF">
             <span class="icon">✨</span>
             <span id="dashDownloadRichPdfBtnText">Download Rich PDF (Textbook Print)</span>
@@ -288,6 +327,27 @@
         <div class="checklist-progress-bar">
           <div class="checklist-progress-fill" id="checklistProgressFill" style="width: 0%;"></div>
         </div>
+
+        <!-- Estimated Exam Marks Coverage Meter -->
+        <div class="marks-coverage-meter" id="marksCoverageMeter">
+          <div class="coverage-header">
+            <div class="coverage-title-group">
+              <span class="coverage-icon">📊</span>
+              <span class="coverage-label">Estimated Exam Marks Coverage:</span>
+              <span class="coverage-value" id="coverageMarksValue">0%</span>
+            </div>
+            <span class="coverage-status-badge badge-neutral" id="coverageStatusBadge">⚠️ Start studying to enter safe zone</span>
+          </div>
+          <div class="coverage-progress-bar">
+            <div class="coverage-progress-fill" id="coverageProgressFill" style="width: 0%;"></div>
+            <div class="coverage-marker passing-marker" style="left: 40%;" title="Minimum Safe Passing Threshold (~40%)"><span>Pass 40%</span></div>
+            <div class="coverage-marker distinction-marker" style="left: 75%;" title="Distinction / Top Rank Threshold (~75%)"><span>Distinction 75%</span></div>
+          </div>
+          <div class="coverage-tip" id="coverageTipText">
+            💡 Completing High Priority topics secures maximum weightage in the shortest preparation time.
+          </div>
+        </div>
+
         <div class="checklist-items-grid" id="checklistItemsList">
           <!-- Rendered via JS -->
         </div>
@@ -980,7 +1040,12 @@
             <!-- Badges rendered via JS -->
           </div>
         </div>
-        <button class="modal-close-btn" onclick="closeTopicDrawer()">&times;</button>
+        <div class="drawer-header-actions">
+          <button class="btn btn-sm btn-outline-purple" id="btnVoiceExplain" onclick="toggleVoiceExplanation()" title="Listen to topic explanation via Text-to-Speech">
+            <span id="voiceIcon">🔊</span> <span id="voiceBtnText">Listen to Explanation</span>
+          </button>
+          <button class="modal-close-btn" onclick="closeTopicDrawer()">&times;</button>
+        </div>
       </div>
 
       <div class="modal-body drawer-scroll-body">
@@ -996,15 +1061,30 @@
 
         <!-- Concept Deep-Dive Overview -->
         <div class="drawer-section">
-          <h4 class="drawer-section-title">📌 Concept Deep-Dive & Key Principles</h4>
+          <div class="drawer-section-header">
+            <h4 class="drawer-section-title">📌 Concept Deep-Dive &amp; Key Principles</h4>
+          </div>
           <div class="drawer-concept-box" id="drawerConceptBox">
             <div class="spinner-sm"></div> Loading concept overview...
           </div>
         </div>
 
+        <!-- Concept Flowchart / Mind-Map (Mermaid.js) -->
+        <div class="drawer-section">
+          <div class="drawer-section-header">
+            <h4 class="drawer-section-title">🗺️ Concept Flowchart &amp; Mind-Map</h4>
+            <span class="badge-count" style="background: rgba(99, 102, 241, 0.15); color: #4338ca;">Visual Blueprint</span>
+          </div>
+          <div class="drawer-mermaid-container" id="drawerMermaidContainer">
+            <div id="drawerMermaidGraph" class="mermaid-graph">
+              <div class="spinner-sm"></div> Generating concept flow diagram...
+            </div>
+          </div>
+        </div>
+
         <!-- Key Formulas / Cheat-Sheet Box -->
         <div class="drawer-section">
-          <h4 class="drawer-section-title">📐 Key Formulas, Theorems & Equations</h4>
+          <h4 class="drawer-section-title">📐 Key Formulas, Theorems &amp; Equations</h4>
           <div class="drawer-formulas-box" id="drawerFormulasBox">
             <!-- Rendered via JS -->
           </div>
@@ -1012,8 +1092,19 @@
 
         <!-- Important Exam Tips Box -->
         <div class="drawer-section">
-          <h4 class="drawer-section-title">💡 Examiner Checking Points & Full-Marks Tips</h4>
+          <h4 class="drawer-section-title">💡 Examiner Checking Points &amp; Full-Marks Tips</h4>
           <div class="drawer-tips-box" id="drawerTipsBox">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Quick 3-Question Self-Test -->
+        <div class="drawer-section">
+          <div class="drawer-section-header">
+            <h4 class="drawer-section-title">⚡ Quick 3-Question Self-Test</h4>
+            <span class="badge-count" id="drawerQuizBadge" style="background: rgba(16, 185, 129, 0.15); color: #059669;">Test Understanding</span>
+          </div>
+          <div class="drawer-quiz-box" id="drawerQuizBox">
             <!-- Rendered via JS -->
           </div>
         </div>
@@ -1021,7 +1112,7 @@
         <!-- Previous Year Questions (PYQs) & Step-by-Step Solutions -->
         <div class="drawer-section">
           <div class="drawer-section-header">
-            <h4 class="drawer-section-title">📝 Previous Year Questions (PYQs) & Model Answers</h4>
+            <h4 class="drawer-section-title">📝 Previous Year Questions (PYQs) &amp; Model Answers</h4>
             <span class="badge-count" id="drawerQuestionCount">0 Questions</span>
           </div>
           <div class="drawer-questions-list" id="drawerQuestionsList">
@@ -1032,6 +1123,7 @@
 
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="closeTopicDrawer()">Close Explorer</button>
+        <button type="button" class="btn btn-success" id="btnMarkTopicDone" onclick="markCurrentTopicDoneFromDrawer()">✓ Mark Topic as Mastered</button>
         <button type="button" class="btn btn-primary" onclick="openTopicNotesFromDrawer()">Read Complete Notes</button>
       </div>
     </div>
