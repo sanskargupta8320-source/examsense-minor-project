@@ -8,6 +8,7 @@ def calculate_topic_priority(
     years_asked: List[int],
     all_subject_years: List[int],
     avg_marks_per_question: float = 7.0,
+    has_notes_bonus: bool = False,
 ) -> Dict[str, Any]:
     """
     Computes a transparent priority score (0-100) and classification (High/Medium/Low)
@@ -51,8 +52,8 @@ def calculate_topic_priority(
         recency_pts = 3.0   # Older
 
     # 4. Gap Comeback Bonus (up to 20 pts)
-    # Core observation in Indian state universities (RGPV, VTU, AKTU, etc.):
-    # Highly frequent topics that professors skipped in the immediately preceding year
+    # Core observation across academic, board, and competitive examinations:
+    # Highly frequent topics that paper setters skipped in the immediately preceding year
     # frequently rotate back into the question paper!
     gap_bonus = 0.0
     gap_reason = ""
@@ -68,7 +69,7 @@ def calculate_topic_priority(
     else:
         gap_reason = "Standard rotation pattern."
 
-    total_score = min(100.0, freq_pts + marks_pts + recency_pts + gap_bonus)
+    total_score = min(100.0, freq_pts + marks_pts + recency_pts + gap_bonus + (5.0 if has_notes_bonus else 0.0))
 
     # Classification
     if total_score >= 65.0:
@@ -83,6 +84,7 @@ def calculate_topic_priority(
         "marks_pts": round(marks_pts, 1),
         "recency_pts": round(recency_pts, 1),
         "gap_bonus": round(gap_bonus, 1),
+        "notes_bonus": 5.0 if has_notes_bonus else 0.0,
         "total_score": round(total_score, 1),
         "priority_level": priority_level,
         "gap_reason": gap_reason,
@@ -90,7 +92,7 @@ def calculate_topic_priority(
         "last_asked_year": last_year_topic,
         "years_diff": years_diff,
         "formula": "Score = Frequency (40%) + Marks Weight (25%) + Recency (15%) + Gap Comeback Bonus (20%)",
-        "disclaimer": "Trend-based prediction derived from historical examination patterns. Not an official guarantee by the university."
+        "disclaimer": "Trend-based prediction derived from historical examination patterns. Not an official guarantee by the exam board or authority."
     }
 
     return {

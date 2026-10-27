@@ -1,7 +1,12 @@
 .env
+*.db
+*.db-shm
+*.db-wal
+examsense.db*
+uploads/*
+!uploads/.gitkeep
 __pycache__/
 *.pyc
-examsense.db
 venv/
 .venv/
 .vscode/

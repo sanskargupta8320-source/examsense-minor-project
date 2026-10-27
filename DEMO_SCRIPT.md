@@ -1,92 +1,85 @@
-# 🎙️ ExamSense — 3-Minute Viva Presentation Script
+# 🎙️ ExamSense — 3-Minute Universal Presentation Script
 > **Project Tagline:** *"Kya padhna hai, ab AI batayega."*  
-> **Target Audience:** College Examination Panel / Viva Evaluators  
+> **Audience:** Examination Panel, Academic Evaluators, or Investors  
 > **Duration:** Exactly 3 Minutes (High-Impact Demo)
 
 ---
 
-## ⏱️ Minute 0:00 – 0:45 | The Problem & The Solution
+## ⏱️ Minute 0:00 – 0:45 | The Problem & The Vision
 
 **Speaker:**  
-> *"Good morning respected professors and evaluators.*  
-> *Every semester, college students face the exact same problem 48 hours before exams: syllabus of 5 units, hundreds of textbook pages, and zero clarity on what the examiner will actually ask.*  
+> *"Good morning respected evaluators.*  
+> *Whether preparing for school board exams (Class 10/12), university engineering degrees, or competitive exams like JEE, NEET, and UPSC, students face the exact same anxiety: hundreds of textbook pages, limited time, and no clear way to know what the examiner will actually test.*  
 >  
-> *Historically, students manually flip through past year papers to guess patterns. But manual analysis is slow, biased, and misses subtle trends.*  
+> *Historically, students try to flip through past papers by hand to guess trends. But manual review is slow, subjective, and misses subtle multi-year patterns.*  
 >  
-> *To solve this, I built **ExamSense** — an AI-powered examination intelligence platform. The student uploads 3 to 5 years of past university question papers (PDFs), and ExamSense mathematically uncovers repeated questions, calculates an explainable priority list of high-probability exam topics, and provides instant revision notes and practice quizzes.*  
+> *To solve this, I built **ExamSense** — a universal AI exam intelligence platform for every student and every exam. Students upload old question papers, photos from their phone, or study notes. In under 60 seconds, ExamSense uses NLP and transparent math to detect repeated questions, rank high-probability chapters, and generate instant revision notes, quizzes, and printable study plans.*  
 >  
-> *Our project motto is: 'Kya padhna hai, ab AI batayega.' Let me demonstrate it live."*
+> *Our motto is: 'Kya padhna hai, ab AI batayega.' Let me demonstrate it live."*
 
 ---
 
-## ⏱️ Minute 0:45 – 2:00 | Live Product Walkthrough
+## ⏱️ Minute 0:45 – 2:00 | Live Walkthrough
 
-### Step 1: 1-Click Instant Demo
+### Step 1: 1-Click Universal Samples (Offline Capable)
 **Speaker:**  
-> *(Action: Click **"Load Demo Data"** on the top navigation bar)*  
-> *"For this demonstration, I'll load our pre-analyzed dataset for **Database Management Systems (CS-501)**, containing 4 consecutive years of RGPV university semester exam papers.*  
+> *(Action: Click **"Sample"** in the top navigation or click one of the sample chips on the landing page)*  
+> *"Notice on the landing page we provide instant pre-analyzed samples for different student segments:*  
+> - *🎓 **College Degree:** Database Management Systems (CS-501)*  
+> - *🎒 **School Board:** Class 10 Science*  
+> - *🎯 **Competitive Exam:** General Science & Physics*  
 >  
-> *Notice how fast it loads — in less than a second, ExamSense populates the full analytical dashboard."*
+> *With zero setup or API keys required, the entire dashboard populates in less than 500 milliseconds."*
 
-### Step 2: Visual Analytics & KPI Metrics
+### Step 2: Multi-Year Analysis & Repeated Questions (TF-IDF)
 **Speaker:**  
-> *(Action: Point to the 4 KPI cards and Charts)*  
-> *"Here on the dashboard, students immediately see:*  
-> - *4 Exam Cycles analyzed with 25 total questions mapped.*  
-> - *Top chart: **Topic Frequency Distribution**, showing which topics appear most consistently (e.g. Normalization, Transactions, Concurrency Control).*  
-> - *Right chart: **Priority Split Donut**, categorizing curriculum topics into High, Medium, and Low study priority."*
+> *(Action: Scroll to KPI cards and Repeated Questions)*  
+> *"Here on the dashboard, ExamSense shows:*  
+> - *Total exam cycles analyzed and questions mapped.*  
+> - *Top chart: **Topic Frequency Distribution**, showing consistency across years.*  
+> - *Under **Repeated Questions**, ExamSense uses **scikit-learn TF-IDF Vectorization and Cosine Similarity** to match questions that recur across different exam years, even when worded differently by examiners. You can expand variations to see the exact years and marks."*
 
-### Step 3: Transparent Priority Formula (Explainable AI)
+### Step 3: Transparent Formula & Interactive Checklist
 **Speaker:**  
-> *(Action: Click the **"Formula ⓘ"** button above the table)*  
-> *"Unlike black-box AI where students don't know why a topic is recommended, ExamSense uses a mathematically transparent 4-factor formula:*  
-> 1. *Exam Frequency (40% weight)*  
-> 2. *Total Cumulative Marks (25% weight)*  
-> 3. *Recency Weight (15% weight)*  
-> 4. *And our unique **University Gap Comeback Bonus (20% weight)** — in state universities like RGPV and VTU, when a core topic is skipped in the immediately preceding year, examiners frequently rotate it back into the paper! ExamSense detects this cyclical pattern algorithmically."*
+> *(Action: Click the **"Formula ⓘ"** button and check a topic in the checklist)*  
+> *"Unlike opaque black-box AI, our 4-factor formula is completely explainable:*  
+> 1. *Frequency weight (40%)*  
+> 2. *Cumulative marks weight (25%)*  
+> 3. *Recency weight (15%)*  
+> 4. *And our **Gap Comeback Bonus (20%)** for high-frequency topics skipped in the immediately preceding cycle.*  
+>  
+> *Students can track their preparation directly using the **Study Checklist**, which saves progress in local storage."*
 
-### Step 4: NLP Repeated Questions Detection
+### Step 4: Notes Upload & Important Questions with Outlines
 **Speaker:**  
-> *(Action: Scroll to the **"Repeated Questions"** section and expand one)*  
-> *"Next is one of our most powerful features: **Repeated Questions**.*  
-> *Using **Scikit-Learn TF-IDF Vectorization and Cosine Similarity**, ExamSense identifies questions asked across different years that are semantically identical, even if phrased slightly differently. For example, questions on 1NF, 2NF, 3NF appeared in 2020, 2021, and 2023 with over 90% semantic similarity."*
+> *(Action: Point to the **Important Questions** tab $\rightarrow$ click **"Show Answer Outline"**)*  
+> *"Students can also upload their personal lecture notes. ExamSense extracts high-yield exam questions, gives topics reinforced by notes a **+5 Notes Priority Bonus**, and provides instant **AI Answer Outlines** detailing bullet points and key formulas."*
 
-### Step 5: Revision Notes & Hinglish Toggle
+### Step 5: Revision Notes (Hinglish/English) & Practice Quiz
 **Speaker:**  
-> *(Action: Click **"📝 Notes"** on Normalization $\rightarrow$ toggle to **Hinglish 🇮🇳**)*  
-> *"When students need to revise quickly, they click 'Notes'. ExamSense provides concise bullet points, definitions, formulas, and a solved university example.*  
-> *Notice our **Hinglish toggle** — Indian engineering students often understand concepts 10x faster when explained in conversational Hinglish, making last-minute study effortless."*
-
-### Step 6: Interactive 5-Question Practice Quiz
-**Speaker:**  
-> *(Action: Click **"🎯 Quiz"** $\rightarrow$ select options $\rightarrow$ Submit)*  
-> *"To verify conceptual readiness, students take an interactive 5-MCQ practice quiz with immediate scoring, celebration feedback, and full explanations for every option."*
-
-### Step 7: PDF Study Plan Export
-**Speaker:**  
-> *(Action: Click **"Download Study Plan (PDF)"**)*  
-> *"Finally, students can click one button to generate a clean, print-ready PDF Study Plan complete with priority tables and recurring exam questions."*
+> *(Action: Click **"📝 Notes"** $\rightarrow$ toggle **Hinglish 🇮🇳**, then open **"🎯 Quiz"**)*  
+> *"When students need to revise quickly, they can toggle notes between formal English and conversational **Hinglish** for faster comprehension. They can then challenge themselves with customizable 5 or 10-question practice MCQs with instant feedback and solution explanations."*
 
 ---
 
 ## ⏱️ Minute 2:00 – 3:00 | Architecture & Conclusion
 
 **Speaker:**  
-> *"Under the hood, ExamSense is built with:*  
-> - *A high-performance **Python FastAPI** backend.*  
-> - ***PyMuPDF** with OCR fallback for extracting text from messy PDF question papers.*  
-> - ***Google Gemini LLM** for intelligent question parsing, with strict JSON validation and retry mechanisms.*  
-> - ***Scikit-Learn (TF-IDF + Cosine Similarity)** for NLP near-duplicate detection.*  
-> - ***SQLAlchemy & SQLite** for local database persistence and caching.*  
-> - *And a lightweight, mobile-responsive Vanilla JS/CSS frontend with **Chart.js**.*  
+> *"Under the hood, ExamSense features a production-ready architecture:*  
+> - *A non-blocking **FastAPI** backend with asynchronous background task processing and live status polling.*  
+> - ***Visitor Session Isolation:** Each student's uploaded data is securely tied to their session cookie (`examsense_vid`), keeping private uploads isolated while shared demo datasets remain protected.*  
+> - ***In-Memory Rate Limiting** to prevent API abuse.*  
+> - ***Direct Multimodal Processing:** Sends PDFs and phone photos directly to Gemini or PyMuPDF/OCR fallback.*  
+> - ***ReportLab Customizer** allowing students to choose exactly which sections to print in their PDF study schedule.*  
+> - *And dual database support for local SQLite development and cloud PostgreSQL on Render free tier.*  
 >  
-> *The entire app is designed to run locally, offline-capable via Demo mode, and handles edge cases gracefully.*  
+> *ExamSense turns stressful last-minute exam panic into a structured, high-probability study plan in seconds.*  
 >  
-> *Thank you, professors. I would be happy to take your questions."*
+> *Thank you, evaluators. I am ready for your questions."*
 
 ---
 
-## 💡 Quick Tips for the Presenter:
-1. **Keep browser zoomed at 100% or 90%** so the charts and table are both visible without excessive scrolling.
-2. **Toggle Dark Mode once** (click the moon/sun icon) to showcase polish and student-friendly design.
-3. If an examiner asks *"Can this work without Gemini API?"*, demonstrate how the **"Load Demo Data"** button runs 100% locally from SQLite with zero external API calls.
+## 💡 Quick Presentation Tips:
+1. **Show Mobile Responsiveness:** Open DevTools (Ctrl+Shift+M) to 360px width to prove that all buttons, tables, and modals are 100% thumb-friendly.
+2. **Toggle Dark/Light Mode:** Click the sun/moon icon to demonstrate responsive visual polish.
+3. **If asked about API quotas:** Explain that the app gracefully switches to sample mode and local regex parsing without ever crashing or leaking secrets.

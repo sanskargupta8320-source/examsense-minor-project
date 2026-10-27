@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ExamSense — Kya padhna hai, ab AI batayega</title>
-  <meta name="description" content="AI-powered university exam intelligence. Analyze previous year papers, uncover repeated questions, predict high-priority exam topics, and practice with instant notes and quizzes.">
+  <title>ExamSense — Know What to Study | AI Exam Intelligence</title>
+  <meta name="description" content="AI-powered exam intelligence for school, college, and competitive exams. Upload question papers and study notes to uncover repeated questions, predict high-priority topics, and get smart study plans.">
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
   
@@ -22,6 +22,17 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="theme-light">
+
+  <!-- ========================================================================= -->
+  <!-- TOP AI UNAVAILABLE WARNING BANNER                                         -->
+  <!-- ========================================================================= -->
+  <div id="aiUnavailableBanner" class="global-banner" style="display: none;">
+    <div class="banner-content">
+      <span class="banner-icon" id="aiUnavailableBannerIcon">⚠️</span>
+      <span class="banner-text" id="aiUnavailableBannerText">AI is currently unavailable, you can still view the sample.</span>
+      <button class="banner-btn" onclick="triggerLoadDemo('college')">View Sample</button>
+    </div>
+  </div>
 
   <!-- ========================================================================= -->
   <!-- NAVBAR                                                                    -->
@@ -44,17 +55,27 @@
           </select>
         </div>
 
-        <!-- Load Demo Data Button -->
-        <button id="btnLoadDemo" class="btn btn-outline-glow" onclick="triggerLoadDemo()" title="Load pre-analyzed RGPV CS-501 DBMS papers with instant repeat questions and priority scores">
+        <!-- Sample Button (ghost style, no CS-501 badge) -->
+        <button id="btnLoadDemo" class="btn btn-outline-ghost" onclick="triggerLoadDemo('college')" title="Explore instant pre-analyzed sample study plan">
           <span class="icon">⚡</span>
-          <span>Load Demo Data</span>
-          <span class="badge-pill">CS-501</span>
+          <span id="navSampleBtnText">Sample</span>
         </button>
 
         <!-- Upload Button -->
         <button id="btnNavUpload" class="btn btn-primary" onclick="openUploadModal()">
           <span class="icon">📁</span>
-          <span>Upload Papers</span>
+          <span id="navUploadBtnText">Upload Papers</span>
+        </button>
+
+        <!-- UI Language Toggle (English / Hinglish) -->
+        <button id="btnUiLangToggle" class="btn-lang-toggle" onclick="toggleUiLanguage()" title="Switch UI Language between English & Hinglish">
+          <span id="uiLangIcon">🇮🇳</span>
+          <span id="uiLangLabel">Hinglish</span>
+        </button>
+
+        <!-- Share Button -->
+        <button id="btnShare" class="btn-theme-toggle" onclick="shareExamSense()" title="Share ExamSense with friends">
+          <span>🔗</span>
         </button>
 
         <!-- Dark Mode Toggle -->
@@ -74,33 +95,43 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <!-- ======================================================================= -->
-    <!-- VIEW 1: HERO / LANDING VIEW (When no subject or explicitly viewed)      -->
+    <!-- VIEW 1: HERO / LANDING VIEW                                             -->
     <!-- ======================================================================= -->
     <section id="landingView" class="landing-section">
       <div class="hero-card">
         <div class="hero-badge">
           <span class="pulse-dot"></span>
-          <span>Engineered for Indian Engineering Students (RGPV, AKTU, VTU)</span>
+          <span id="heroBadgeText">For every student, every exam</span>
         </div>
 
         <h1 class="hero-title">
-          Stop Guessing Exam Papers.<br>
-          <span class="gradient-text">Let AI Predict What Matters.</span>
+          <span id="heroTitleLine1">Know what to study.</span><br>
+          <span class="gradient-text" id="heroTitleLine2">Upload old question papers and get a smart, ranked study plan in seconds.</span>
         </h1>
 
-        <p class="hero-description">
-          Upload 3–5 years of university question papers. ExamSense extracts questions, calculates mathematically transparent exam priority scores, finds exact repeated questions via TF-IDF, and generates instant revision notes & quizzes.
+        <p class="hero-description" id="heroDescText">
+          Whether school board, college degree, or competitive exams (JEE, NEET, UPSC, SSC, GATE) — upload question papers or notes to instantly discover repeated questions, predict high-priority topics, and practice with smart quizzes.
         </p>
 
         <div class="hero-cta-group">
-          <button class="btn btn-primary btn-lg" onclick="triggerLoadDemo()">
-            <span class="icon">🚀</span>
-            <span>Explore Demo Subject (DBMS CS-501)</span>
-          </button>
-          <button class="btn btn-outline btn-lg" onclick="openUploadModal()">
+          <button class="btn btn-primary btn-lg" onclick="openUploadModal()">
             <span class="icon">📤</span>
-            <span>Upload My Subject Papers</span>
+            <span id="heroBtnUpload">Upload my papers</span>
           </button>
+          <button class="btn btn-outline-glow btn-lg" onclick="openSubjectTopicModal()">
+            <span class="icon">💡</span>
+            <span id="heroBtnTopic">Start with just a subject name</span>
+          </button>
+        </div>
+
+        <!-- Sample Links Strip -->
+        <div class="hero-sample-links">
+          <span class="sample-intro-text">See a sample first:</span>
+          <div class="sample-chips-row">
+            <button class="sample-chip" onclick="triggerLoadDemo('college')">🎓 College: DBMS (CS-501)</button>
+            <button class="sample-chip" onclick="triggerLoadDemo('school')">🎒 School: Class 10 Science</button>
+            <button class="sample-chip" onclick="triggerLoadDemo('competitive')">🎯 Competitive: Physics</button>
+          </div>
         </div>
 
         <!-- Live Metrics Strip -->
@@ -122,42 +153,61 @@
           <div class="stat-divider"></div>
           <div class="stat-item">
             <span class="stat-number">100%</span>
-            <span class="stat-label">Offline Demo Capable</span>
+            <span class="stat-label">Offline Sample Capable</span>
           </div>
         </div>
       </div>
 
       <!-- How It Works (3 Steps) -->
       <div class="how-it-works-section">
-        <h2 class="section-title text-center">How ExamSense Works in 3 Steps</h2>
-        <p class="section-subtitle text-center">Engineered specifically to solve the last-minute semester exam rush</p>
+        <h2 class="section-title text-center" id="howItWorksTitle">How ExamSense Works in 3 Steps</h2>
+        <p class="section-subtitle text-center" id="howItWorksSubtitle">From past papers to targeted exam preparation in under 60 seconds</p>
 
         <div class="steps-grid">
           <div class="step-card">
             <div class="step-number">01</div>
             <div class="step-icon">📑</div>
-            <h3 class="step-title">Upload Past Question Papers</h3>
-            <p class="step-desc">
-              Drop PDFs for 3–5 exam years. ExamSense extracts question text using PyMuPDF and OCR fallback, parsing marks and units.
+            <h3 class="step-title" id="step1Title">Upload Papers or Notes</h3>
+            <p class="step-desc" id="step1Desc">
+              Drop PDFs or photos from your camera (even 1 paper works!), or paste question text directly. Auto-detects paper type and year.
             </p>
           </div>
 
           <div class="step-card">
             <div class="step-number">02</div>
             <div class="step-icon">🔬</div>
-            <h3 class="step-title">AI Pattern & Repeat Detection</h3>
-            <p class="step-desc">
-              Scikit-learn TF-IDF and Cosine Similarity detect repeated questions. Transparent formula predicts upcoming High-Priority topics.
+            <h3 class="step-title" id="step2Title">AI Pattern & Repeat Detection</h3>
+            <p class="step-desc" id="step2Desc">
+              TF-IDF vectors uncover repeated questions across years. Transparent formula ranks topics into High, Medium, and Low priority.
             </p>
           </div>
 
           <div class="step-card">
             <div class="step-number">03</div>
             <div class="step-icon">🎯</div>
-            <h3 class="step-title">Study Plan, Notes & Quizzes</h3>
-            <p class="step-desc">
-              Export a complete PDF Study Plan. Read short bullet revision notes (with English/Hinglish toggle) and take 5-MCQ interactive practice quizzes.
+            <h3 class="step-title" id="step3Title">Targeted Study Plan & Notes</h3>
+            <p class="step-desc" id="step3Desc">
+              Export a 7-day revision schedule as PDF. Review quick bullet notes in English or Hinglish and test yourself with 5-MCQ quizzes.
             </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ & Privacy Section -->
+      <div class="faq-section">
+        <h2 class="section-title text-center">Frequently Asked Questions</h2>
+        <div class="faq-grid">
+          <div class="faq-item">
+            <h4>❓ Can I upload just one paper?</h4>
+            <p>Yes! Even with a single paper, ExamSense categorizes all questions and builds your study checklist. Uploading 2+ years unlocks repeated question detection.</p>
+          </div>
+          <div class="faq-item">
+            <h4>❓ What exams are supported?</h4>
+            <p>ExamSense works for school boards (CBSE, ICSE, State Boards), college & university degrees (B.Tech, B.Sc, B.Com, MBA), and competitive exams (JEE, NEET, UPSC, SSC, GATE).</p>
+          </div>
+          <div class="faq-item">
+            <h4>🔒 Is my question paper data private?</h4>
+            <p>Yes. Your uploaded papers are isolated to your private session and only used to generate your study plan. They are never shared publicly.</p>
           </div>
         </div>
       </div>
@@ -168,31 +218,66 @@
     <!-- ======================================================================= -->
     <section id="dashboardView" class="dashboard-section" style="display: none;">
       
+      <!-- AI Estimate Banner (Shown only when subject.source == 'ai_estimate') -->
+      <div id="aiEstimateBanner" class="alert-banner alert-warning" style="display: none; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; width: 100%;">
+          <div>
+            <strong>ℹ️ AI Curriculum Estimate:</strong> This plan is an AI estimate based on common exam patterns, not your actual papers. Upload your papers for a more accurate plan.
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="openUploadModalForCurrentSubject()">
+            <span>Upload Papers</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Top Subject Summary Banner -->
       <div class="dashboard-header-card">
         <div class="subject-info-col">
           <div class="subject-meta-tag">
+            <span class="badge-source" id="dashSourceBadge">Based on your papers</span>
             <span class="badge-code" id="dashSubjectCode">CS-501</span>
+            <span class="badge-level" id="dashExamLevel">College / University</span>
             <span class="badge-papers" id="dashExamYears">2020 – 2023 Papers</span>
           </div>
           <h2 class="subject-name" id="dashSubjectName">Database Management Systems</h2>
           <p class="subject-summary" id="dashSubjectSummary">
-            Detailed examination intelligence based on analyzed semester papers.
+            Detailed examination intelligence based on analyzed exam papers.
           </p>
         </div>
 
         <div class="subject-actions-col">
-          <button class="btn btn-success" id="btnDownloadPDF" onclick="downloadStudyPlanPDF()">
+          <button class="btn btn-success" id="btnDownloadPDF" onclick="openCustomizePdfModal()">
             <span class="icon">📥</span>
-            <span>Download Study Plan (PDF)</span>
+            <span id="dashDownloadPdfBtnText">Download Study Plan (PDF)</span>
           </button>
-          <button class="btn btn-outline" onclick="openUploadModal()">
+          <button class="btn btn-outline" id="btnAddPapers" onclick="openUploadModal()">
             <span class="icon">+</span>
-            <span>Add Papers</span>
+            <span id="dashAddPapersBtnText">Add Papers</span>
           </button>
-          <button class="btn btn-danger-outline" onclick="confirmDeleteCurrentSubject()" title="Delete Subject">
+          <button class="btn btn-outline-purple" id="btnAddNotes" onclick="openAddNotesModal()">
+            <span class="icon">📝</span>
+            <span id="dashAddNotesBtnText">Add Notes</span>
+          </button>
+          <button class="btn btn-danger-outline" id="btnDeleteSubject" onclick="confirmDeleteCurrentSubject()" title="Delete Subject">
             <span class="icon">🗑️</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Study Checklist Tracker Card -->
+      <div class="checklist-card" id="checklistCard">
+        <div class="checklist-header">
+          <div>
+            <h3 class="checklist-title">🎯 Study Checklist</h3>
+            <p class="checklist-subtitle">Tick topics as you finish them to track your revision progress</p>
+          </div>
+          <div class="checklist-counter" id="checklistProgressText">0 of 0 topics completed (0%)</div>
+        </div>
+        <div class="checklist-progress-bar">
+          <div class="checklist-progress-fill" id="checklistProgressFill" style="width: 0%;"></div>
+        </div>
+        <div class="checklist-items-grid" id="checklistItemsList">
+          <!-- Rendered via JS -->
         </div>
       </div>
 
@@ -202,15 +287,15 @@
           <div class="kpi-icon">🔥</div>
           <div class="kpi-content">
             <div class="kpi-val" id="kpiHighPriority">0</div>
-            <div class="kpi-label">High Priority Topics (Must Study)</div>
+            <div class="kpi-label" id="kpiHighPriorityLabel">High Priority Topics (Must Study)</div>
           </div>
         </div>
 
-        <div class="kpi-card card-kpi-purple">
+        <div class="kpi-card card-kpi-purple" id="kpiRepeatedQuestionsCard">
           <div class="kpi-icon">🔁</div>
           <div class="kpi-content">
             <div class="kpi-val" id="kpiRepeatedQuestions">0</div>
-            <div class="kpi-label">Repeated Question Patterns</div>
+            <div class="kpi-label" id="kpiRepeatedQuestionsLabel">Repeated Question Patterns</div>
           </div>
         </div>
 
@@ -218,15 +303,15 @@
           <div class="kpi-icon">📚</div>
           <div class="kpi-content">
             <div class="kpi-val" id="kpiTotalQuestions">0</div>
-            <div class="kpi-label">Total Questions Mapped</div>
+            <div class="kpi-label" id="kpiTotalQuestionsLabel">Total Questions Mapped</div>
           </div>
         </div>
 
-        <div class="kpi-card card-kpi-green">
+        <div class="kpi-card card-kpi-green" id="kpiExamYearsCard">
           <div class="kpi-icon">📊</div>
           <div class="kpi-content">
             <div class="kpi-val" id="kpiExamYears">0</div>
-            <div class="kpi-label">Exam Cycles Analyzed</div>
+            <div class="kpi-label" id="kpiExamYearsLabel">Exam Cycles Analyzed</div>
           </div>
         </div>
       </div>
@@ -244,6 +329,7 @@
           <div class="chart-canvas-wrapper">
             <canvas id="topicFrequencyChart"></canvas>
           </div>
+          <div class="section-help-tip">💡 Topics with higher bars appear consistently across multiple years.</div>
         </div>
 
         <div class="chart-card">
@@ -259,6 +345,7 @@
           <div class="chart-canvas-wrapper donut-wrapper">
             <canvas id="priorityDonutChart"></canvas>
           </div>
+          <div class="section-help-tip">💡 High priority means very likely to come again based on frequency and gap comeback bonus.</div>
         </div>
       </div>
 
@@ -292,6 +379,10 @@
           </div>
         </div>
 
+        <div class="section-help-tip mb-3">
+          💡 High priority means very likely to come again based on frequency and gap comeback bonus.
+        </div>
+
         <!-- Topics Table -->
         <div class="table-responsive">
           <table class="data-table" id="topicsTable">
@@ -301,8 +392,8 @@
                 <th>Topic Name</th>
                 <th style="width: 95px;">Frequency</th>
                 <th style="width: 95px;">Total Marks</th>
-                <th style="width: 140px;">Years Asked</th>
-                <th style="width: 110px;">Last Exam</th>
+                <th style="width: 140px;" id="thYearsAsked">Years Asked</th>
+                <th style="width: 110px;" id="thLastExam">Last Exam</th>
                 <th style="width: 120px;">Score</th>
                 <th style="width: 230px;" class="text-right">Actions</th>
               </tr>
@@ -315,10 +406,10 @@
       </div>
 
       <!-- Section: Repeated Questions Across Years -->
-      <div class="section-card">
+      <div class="section-card" id="repeatedQuestionsSection">
         <div class="section-header-row">
           <div>
-            <h3 class="section-card-title">🔁 Verified Repeated Questions across Exam Years</h3>
+            <h3 class="section-card-title">🔁 Verified Repeated Questions Across Exam Years</h3>
             <p class="section-card-subtitle">
               Calculated using TF-IDF Vectorization and Cosine Similarity (Scikit-Learn). These exact or near-duplicate questions recur frequently.
             </p>
@@ -326,7 +417,46 @@
           <span class="badge-pill-purple" id="repeatedCountBadge">0 Repeating Patterns</span>
         </div>
 
+        <div class="section-help-tip mb-3">
+          💡 Exact or near-duplicate questions detected across multiple exam years. Prioritize studying these verbatim.
+        </div>
+
         <div id="repeatedQuestionsContainer" class="repeated-questions-grid">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+      <!-- Section: Important Questions Tab -->
+      <div class="section-card" id="importantQuestionsSection">
+        <div class="section-header-row">
+          <div>
+            <h3 class="section-card-title">📌 Important Questions & AI Outlines</h3>
+            <p class="section-card-subtitle">Questions asked in past papers alongside high-yield questions suggested from your notes</p>
+          </div>
+          <div class="questions-tab-actions">
+            <button class="btn btn-sm btn-outline-purple" onclick="openAddNotesModal()">
+              <span>+ Add Notes to Subject</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="section-help-tip mb-3">
+          💡 Click "Show Answer Outline" on any question to view structured exam points and key concepts.
+        </div>
+
+        <div class="questions-filter-toolbar">
+          <div class="tab-pill-group">
+            <button class="tab-pill active" id="tabFilterAll" onclick="filterQuestionsTab('all')">All Questions</button>
+            <button class="tab-pill" id="tabFilterPapers" onclick="filterQuestionsTab('papers')">Asked in Past Papers</button>
+            <button class="tab-pill" id="tabFilterNotes" onclick="filterQuestionsTab('notes')">Suggested from Notes</button>
+          </div>
+
+          <div class="questions-search-group">
+            <input type="text" id="questionsSearchInput" class="form-control form-control-sm" placeholder="Search questions..." oninput="renderImportantQuestions()">
+          </div>
+        </div>
+
+        <div id="importantQuestionsList" class="important-questions-list">
           <!-- Rendered via JS -->
         </div>
       </div>
@@ -336,62 +466,106 @@
   </main>
 
   <!-- ========================================================================= -->
-  <!-- MODAL 1: UPLOAD PAPERS                                                    -->
+  <!-- MODAL 1: UPLOAD PAPERS (Streamlined & Accessible)                         -->
   <!-- ========================================================================= -->
   <div class="modal-backdrop" id="uploadModal" style="display: none;">
     <div class="modal-dialog">
       <div class="modal-header">
         <div>
-          <h3 class="modal-title">Upload Examination Papers</h3>
-          <p class="modal-subtitle">Analyze multiple years of university PDFs (max 10MB each)</p>
+          <h3 class="modal-title">Upload Exam Papers</h3>
+          <p class="modal-subtitle">PDFs or photos from camera (even 1 paper works!)</p>
         </div>
         <button class="modal-close-btn" onclick="closeUploadModal()">&times;</button>
       </div>
 
       <form id="uploadForm" onsubmit="handleUploadSubmit(event)">
         <div class="modal-body">
-          <div class="form-row">
+          
+          <!-- Mode Tabs: Upload Files vs Paste Text -->
+          <div class="upload-mode-tabs">
+            <button type="button" class="mode-tab-btn active" id="btnTabUploadFiles" onclick="switchUploadMode('files')">
+              <span>📄 Upload Files (PDF / Photos)</span>
+            </button>
+            <button type="button" class="mode-tab-btn" id="btnTabPasteText" onclick="switchUploadMode('text')">
+              <span>📋 Paste Text Instead</span>
+            </button>
+          </div>
+
+          <!-- Files Tab Content -->
+          <div id="tabFilesContent">
+            <!-- Drag and drop zone -->
+            <div class="upload-dropzone" id="uploadDropzone" onclick="document.getElementById('fileInput').click()">
+              <div class="dropzone-icon">📑</div>
+              <p class="dropzone-text">Click or drag & drop question papers here</p>
+              <p class="dropzone-subtext">PDF documents or JPG/PNG/WEBP photos from phone camera</p>
+              <input type="file" id="fileInput" multiple accept="application/pdf,image/*" style="display: none;" onchange="handleFileSelection(event)">
+            </div>
+
+            <!-- Gentle Tip -->
+            <div class="tip-box">
+              💡 <b>Tip:</b> 1 paper works! Uploading 3+ years unlocks repeat question detection.
+            </div>
+
+            <!-- Selected files table with year & doc_type assignments -->
+            <div id="selectedFilesSection" style="display: none; margin-top: 14px;">
+              <label class="form-label">Assign Exam Year & Document Type for each file:</label>
+              <div class="selected-files-list" id="selectedFilesList">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Paste Text Tab Content -->
+          <div id="tabTextContent" style="display: none;">
+            <div class="form-group">
+              <label class="form-label" for="inputPastedText">Paste Question Paper Content:</label>
+              <textarea id="inputPastedText" class="form-control" rows="8" placeholder="Paste questions, sections, or whole question paper text here..."></textarea>
+            </div>
+          </div>
+
+          <!-- Optional Details (With smart defaults) -->
+          <div class="form-row mt-3">
             <div class="form-group flex-2">
-              <label class="form-label" for="inputSubjectName">Subject Name <span class="required">*</span></label>
-              <input type="text" id="inputSubjectName" class="form-control" placeholder="e.g. Database Management Systems" required>
+              <label class="form-label" for="inputSubjectName">
+                Subject Name <span class="text-muted">(Optional — AI detects from file)</span>
+              </label>
+              <input type="text" id="inputSubjectName" class="form-control" placeholder="e.g. Physics (Leave blank to auto-detect)">
             </div>
             <div class="form-group flex-1">
-              <label class="form-label" for="inputSubjectCode">Subject Code <span class="required">*</span></label>
-              <input type="text" id="inputSubjectCode" class="form-control" placeholder="e.g. CS-501" required>
+              <label class="form-label" for="inputExamLevel">
+                Exam Level <span class="text-muted">(Optional)</span>
+              </label>
+              <select id="inputExamLevel" class="form-control">
+                <option value="General">General / Auto</option>
+                <option value="School Board">School Board</option>
+                <option value="College / University">College / University</option>
+                <option value="Competitive Exam">Competitive Exam</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
           </div>
 
-          <!-- Drag and drop zone -->
-          <div class="upload-dropzone" id="uploadDropzone" onclick="document.getElementById('fileInput').click()">
-            <div class="dropzone-icon">📑</div>
-            <p class="dropzone-text">Click or drag & drop previous year PDF papers here</p>
-            <p class="dropzone-subtext">You can select multiple files at once (e.g. 2020, 2021, 2022, 2023)</p>
-            <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;" onchange="handleFileSelection(event)">
-          </div>
-
-          <!-- Selected files table with year assignments -->
-          <div id="selectedFilesSection" style="display: none; margin-top: 14px;">
-            <label class="form-label">Assign Exam Year for each paper:</label>
-            <div class="selected-files-list" id="selectedFilesList">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
-
-          <!-- Loading Progress Overlay -->
+          <!-- Loading Progress Overlay (With live background polling) -->
           <div id="uploadProgressBox" class="progress-box" style="display: none;">
             <div class="spinner"></div>
-            <div class="progress-text" id="uploadProgressText">Extracting PDF text & analyzing examination patterns...</div>
-            <div class="progress-subtext">This uses PyMuPDF + AI question extraction. Please wait.</div>
+            <div class="progress-text" id="uploadProgressText">Uploading question papers & starting AI analysis...</div>
+            <div class="progress-subtext" id="uploadProgressSubtext">Please wait while ExamSense reads your papers.</div>
           </div>
 
-          <!-- Error Alert Banner -->
-          <div id="uploadErrorBanner" class="alert-banner alert-danger" style="display: none;"></div>
+          <!-- Error Alert Banner with Retry & Sample option -->
+          <div id="uploadErrorBanner" class="alert-banner alert-danger" style="display: none;">
+            <div id="uploadErrorMessage">We could not read this file. Try a clearer photo or a different PDF.</div>
+            <div class="mt-2" style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="resetUploadForm()">Try Again</button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="closeUploadModal(); triggerLoadDemo('college');">Use sample instead</button>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeUploadModal()">Cancel</button>
           <button type="submit" id="btnSubmitUpload" class="btn btn-primary">
-            <span>Start AI Analysis</span>
+            <span>Start Analysis</span>
           </button>
         </div>
       </form>
@@ -399,7 +573,183 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODAL 2: REVISION NOTES (With Hindi/English Toggle)                       -->
+  <!-- MODAL 2: START WITH JUST A SUBJECT NAME                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" id="subjectTopicModal" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Start with Just a Subject Name</h3>
+          <p class="modal-subtitle">AI predicts standard curriculum topics & typical exam questions</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeSubjectTopicModal()">&times;</button>
+      </div>
+
+      <form id="subjectTopicForm" onsubmit="handleSubjectTopicSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="topicInputSubjectName">Subject Name <span class="required">*</span></label>
+            <input type="text" id="topicInputSubjectName" class="form-control" placeholder="e.g. Organic Chemistry, Indian Polity, Operating Systems" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="topicInputExamLevel">Exam Level</label>
+              <select id="topicInputExamLevel" class="form-control">
+                <option value="General">General / Auto</option>
+                <option value="School Board">School Board (10th/12th)</option>
+                <option value="College / University">College / University</option>
+                <option value="Competitive Exam">Competitive Exam</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label" for="topicInputBoard">Board / Exam Name <span class="text-muted">(Optional)</span></label>
+              <input type="text" id="topicInputBoard" class="form-control" placeholder="e.g. CBSE, JEE, NEET, UPSC">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="topicInputClass">Class / Semester <span class="text-muted">(Optional)</span></label>
+            <input type="text" id="topicInputClass" class="form-control" placeholder="e.g. Class 12, 5th Semester">
+          </div>
+
+          <!-- Loading Progress Box -->
+          <div id="topicProgressBox" class="progress-box" style="display: none;">
+            <div class="spinner"></div>
+            <div class="progress-text">Generating AI curriculum plan...</div>
+            <div class="progress-subtext">Mapping high-importance topics & typical exam questions</div>
+          </div>
+
+          <div id="topicErrorBanner" class="alert-banner alert-danger" style="display: none;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeSubjectTopicModal()">Cancel</button>
+          <button type="submit" id="btnSubmitTopicPlan" class="btn btn-primary">
+            <span>Generate Study Plan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 3: ADD NOTES TO EXISTING SUBJECT                                    -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" id="addNotesModal" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Add My Study Notes</h3>
+          <p class="modal-subtitle">Upload revision notes to unlock AI-suggested exam questions & +5 priority bonus</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeAddNotesModal()">&times;</button>
+      </div>
+
+      <form id="addNotesForm" onsubmit="handleAddNotesSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="notesFileInput">Upload Notes Document or Photos:</label>
+            <input type="file" id="notesFileInput" class="form-control" accept="application/pdf,image/*">
+            <p class="dropzone-subtext mt-1">Accepts PDF notes, scanned photos, or handwritten chapter notes.</p>
+          </div>
+
+          <div class="form-group mt-3">
+            <label class="form-label" for="notesTextInput">Or Paste Notes Text:</label>
+            <textarea id="notesTextInput" class="form-control" rows="5" placeholder="Paste your study notes text, formulas, or chapter summaries here..."></textarea>
+          </div>
+
+          <!-- Loading Progress Box -->
+          <div id="addNotesProgressBox" class="progress-box" style="display: none;">
+            <div class="spinner"></div>
+            <div class="progress-text">Analyzing study notes & extracting high-yield questions...</div>
+            <div class="progress-subtext">Matching notes with core syllabus topics</div>
+          </div>
+
+          <div id="addNotesErrorBanner" class="alert-banner alert-danger" style="display: none;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeAddNotesModal()">Cancel</button>
+          <button type="submit" id="btnSubmitAddNotes" class="btn btn-primary">
+            <span>Analyze Notes</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 4: CUSTOMIZE PDF DOWNLOAD                                           -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" id="customizePdfModal" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Customize Study Plan PDF</h3>
+          <p class="modal-subtitle">Choose the sections to include in your printed study plan</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeCustomizePdfModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="pdf-sections-list">
+          <label class="checkbox-option">
+            <input type="checkbox" id="pdfSecSummary" checked>
+            <div>
+              <strong>Cover & Quick Summary</strong>
+              <div class="text-muted" style="font-size: 12px;">KPI overview, priority split bars & "Start Here" top 5 topics</div>
+            </div>
+          </label>
+
+          <label class="checkbox-option">
+            <input type="checkbox" id="pdfSecTopics" checked>
+            <div>
+              <strong>Priority Topics Table</strong>
+              <div class="text-muted" style="font-size: 12px;">Full table grouped by High, Medium, and Low urgency with scores</div>
+            </div>
+          </label>
+
+          <label class="checkbox-option" id="pdfSecRepeatedOption">
+            <input type="checkbox" id="pdfSecRepeated" checked>
+            <div>
+              <strong>Verified Repeated Questions</strong>
+              <div class="text-muted" style="font-size: 12px;">Multi-year recurring questions with years they appeared</div>
+            </div>
+          </label>
+
+          <label class="checkbox-option">
+            <input type="checkbox" id="pdfSecQuestions" checked>
+            <div>
+              <strong>Important Questions & Checkboxes</strong>
+              <div class="text-muted" style="font-size: 12px;">Topic-grouped questions with marks and printable study checkboxes (☐)</div>
+            </div>
+          </label>
+
+          <label class="checkbox-option">
+            <input type="checkbox" id="pdfSecPlan" checked>
+            <div>
+              <strong>7-Day Targeted Study Plan</strong>
+              <div class="text-muted" style="font-size: 12px;">Day-by-day distribution of core topics leading up to exam day</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeCustomizePdfModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="executeCustomPdfDownload()">
+          <span class="icon">📥</span>
+          <span>Download PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 5: REVISION NOTES (With Hindi/English Toggle)                       -->
   <!-- ========================================================================= -->
   <div class="modal-backdrop" id="notesModal" style="display: none;">
     <div class="modal-dialog modal-dialog-lg">
@@ -448,23 +798,42 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODAL 3: INTERACTIVE PRACTICE QUIZ                                        -->
+  <!-- MODAL 6: INTERACTIVE PRACTICE QUIZ                                        -->
   <!-- ========================================================================= -->
   <div class="modal-backdrop" id="quizModal" style="display: none;">
     <div class="modal-dialog">
       <div class="modal-header">
         <div>
-          <div class="modal-pre-title">5-Question Practice Quiz</div>
+          <div class="modal-pre-title" id="quizModalPreTitle">Practice Quiz</div>
           <h3 class="modal-title" id="quizModalTopicTitle">Topic Practice Quiz</h3>
         </div>
         <button class="modal-close-btn" onclick="closeQuizModal()">&times;</button>
       </div>
 
       <div class="modal-body">
+        <!-- Quiz Config Strip (5/10 questions, easy/medium/hard) -->
+        <div class="quiz-config-strip" id="quizConfigStrip">
+          <div class="quiz-config-item">
+            <label>Questions:</label>
+            <select id="quizQuestionCountSelect" onchange="changeQuizConfig()">
+              <option value="5" selected>5 MCQs</option>
+              <option value="10">10 MCQs</option>
+            </select>
+          </div>
+          <div class="quiz-config-item">
+            <label>Difficulty:</label>
+            <select id="quizDifficultySelect" onchange="changeQuizConfig()">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+        </div>
+
         <div id="quizLoadingBox" class="progress-box" style="display: none;">
           <div class="spinner"></div>
-          <div class="progress-text">Generating 5 practice MCQs with explanations...</div>
-          <div class="progress-subtext">Testing core concepts tested in semester exams</div>
+          <div class="progress-text">Generating practice MCQs with explanations...</div>
+          <div class="progress-subtext">Testing core concepts tested in exams</div>
         </div>
 
         <!-- Quiz Container -->
@@ -473,7 +842,7 @@
           <div class="quiz-progress-bar-wrapper">
             <div class="quiz-progress-text">
               <span id="quizQuestionCounter">Question 1 of 5</span>
-              <span id="quizTimerText">Topic Quiz</span>
+              <span id="quizTimerText">Practice Quiz</span>
             </div>
             <div class="quiz-track">
               <div class="quiz-fill" id="quizProgressFill" style="width: 20%;"></div>
@@ -496,7 +865,7 @@
           <h3 class="result-headline" id="resultHeadline">Quiz Completed!</h3>
           <div class="result-score-circle">
             <span class="score-num" id="resultScoreNum">4</span>
-            <span class="score-den">/ 5</span>
+            <span class="score-den" id="resultScoreDen">/ 5</span>
           </div>
           <p class="result-feedback" id="resultFeedback">Excellent! You have a solid grasp of this topic.</p>
 
@@ -520,7 +889,7 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- MODAL 4: "HOW IS IT CALCULATED?" EXPLANATION MODAL                         -->
+  <!-- MODAL 7: "HOW IS IT CALCULATED?" EXPLANATION MODAL                         -->
   <!-- ========================================================================= -->
   <div class="modal-backdrop" id="formulaModal" style="display: none;">
     <div class="modal-dialog">
@@ -541,28 +910,28 @@
           <div class="formula-item">
             <div class="formula-badge">40%</div>
             <div class="formula-text">
-              <strong>1. Exam Frequency (Consistency):</strong> Measures how frequently the topic appeared across multiple years. Core evergreen syllabus topics carry up to 40 points.
+              <strong>1. Exam Frequency (Consistency):</strong> Measures how consistently the topic appeared across multiple exam years. Core evergreen syllabus topics carry up to 40 points.
             </div>
           </div>
 
           <div class="formula-item">
             <div class="formula-badge">25%</div>
             <div class="formula-text">
-              <strong>2. Total Marks Weightage:</strong> Calculates the cumulative marks carried by questions in this topic relative to average question weight (7 to 14 marks).
+              <strong>2. Total Marks Weightage:</strong> Calculates cumulative marks carried by questions in this topic relative to standard question weight (typically 5 to 15 marks).
             </div>
           </div>
 
           <div class="formula-item">
             <div class="formula-badge">15%</div>
             <div class="formula-text">
-              <strong>3. Recency Weight:</strong> Topics tested in the most recent semester examination cycle carry higher baseline relevance.
+              <strong>3. Recency Weight:</strong> Topics tested in the most recent exam cycle carry higher baseline relevance.
             </div>
           </div>
 
           <div class="formula-item">
             <div class="formula-badge highlight-bonus">20%</div>
             <div class="formula-text">
-              <strong>4. University Gap Comeback Bonus:</strong> A statistical pattern observed in Indian state universities (RGPV, VTU, AKTU): frequent topics skipped in the immediately preceding 1–2 cycles have a high probability of rotational return!
+              <strong>4. Gap Comeback Bonus:</strong> A statistical pattern observed in multi-year examinations: frequent topics skipped in the immediately preceding 1–2 cycles have a high probability of rotational return!
             </div>
           </div>
         </div>
@@ -576,7 +945,7 @@
 
         <!-- Academic Disclaimer -->
         <div class="alert-banner alert-warning mt-3">
-          <strong>Academic Viva Note:</strong> This is a statistical trend-based recommendation based on historical question paper analysis to optimize study time. It is not an official guarantee by the examination board.
+          <strong>Academic Note:</strong> This is a statistical trend-based recommendation based on historical question paper analysis to optimize study time. It is not an official guarantee by the examination board.
         </div>
       </div>
 
@@ -585,6 +954,27 @@
       </div>
     </div>
   </div>
+
+  <!-- ========================================================================= -->
+  <!-- FOOTER                                                                    -->
+  <!-- ========================================================================= -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <span class="footer-logo">🎓 ExamSense</span>
+        <span class="footer-tagline">Kya padhna hai, ab AI batayega.</span>
+      </div>
+      <div class="footer-privacy">
+        <span>🔒 Your uploaded papers are only used to build your study plan and are never shared publicly.</span>
+      </div>
+      <div class="footer-links">
+        <button class="footer-link-btn" onclick="openFormulaModal()">Scoring Formula</button>
+        <button class="footer-link-btn" onclick="triggerLoadDemo('college')">College Sample</button>
+        <button class="footer-link-btn" onclick="triggerLoadDemo('school')">School Sample</button>
+        <button class="footer-link-btn" onclick="triggerLoadDemo('competitive')">Competitive Sample</button>
+      </div>
+    </div>
+  </footer>
 
   <!-- JavaScript App Logic -->
   <script src="/static/js/app.js"></script>

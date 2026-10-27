@@ -20,6 +20,13 @@ class Subject(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     code = Column(String(50), nullable=False, index=True)
+    exam_type = Column(String(50), nullable=True, default="General")
+    owner_id = Column(String(100), nullable=True, index=True)
+    is_demo = Column(Boolean, default=False, nullable=True)
+    source = Column(String(50), nullable=True, default="papers")  # "papers", "ai_estimate", "demo"
+    status = Column(String(50), nullable=True, default="ready")   # "processing", "ready", "failed"
+    progress_text = Column(String(255), nullable=True, default="Ready")
+    error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -29,15 +36,26 @@ class Subject(Base):
     repeated_groups = relationship(
         "RepeatedQuestionGroup", back_populates="subject", cascade="all, delete-orphan"
     )
+    suggested_questions = relationship(
+        "SuggestedQuestion", back_populates="subject", cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "code": self.code,
+            "exam_type": self.exam_type or "General",
+            "owner_id": self.owner_id,
+            "is_demo": bool(self.is_demo),
+            "source": self.source or "papers",
+            "status": self.status or "ready",
+            "progress_text": self.progress_text or "Ready",
+            "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "papers_count": len(self.papers),
             "topics_count": len(self.topics),
+            "suggested_questions_count": len(self.suggested_questions) if self.suggested_questions else 0,
         }
 
 
@@ -51,6 +69,8 @@ class Paper(Base):
     filepath = Column(String(500), nullable=False)
     extracted_text = Column(Text, nullable=True)
     is_ocr = Column(Boolean, default=False)
+    doc_type = Column(String(50), nullable=True, default="paper")  # "paper" or "notes"
+    questions_found = Column(Integer, default=0, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -64,6 +84,8 @@ class Paper(Base):
             "year": self.year,
             "filename": self.filename,
             "is_ocr": self.is_ocr,
+            "doc_type": self.doc_type or "paper",
+            "questions_found": self.questions_found if self.questions_found is not None else len(self.questions),
             "text_length": len(self.extracted_text) if self.extracted_text else 0,
             "questions_count": len(self.questions),
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -114,6 +136,7 @@ class Topic(Base):
     priority_score = Column(Float, default=0.0)
     priority_level = Column(String(20), default="Medium")  # "High", "Medium", "Low"
     priority_breakdown = Column(Text, default="{}")  # JSON string of calculation weights
+    has_notes_source = Column(Boolean, default=False, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -121,6 +144,7 @@ class Topic(Base):
     questions = relationship("Question", back_populates="topic")
     notes = relationship("NoteCache", back_populates="topic", cascade="all, delete-orphan")
     quizzes = relationship("QuizCache", back_populates="topic", cascade="all, delete-orphan")
+    suggested_questions = relationship("SuggestedQuestion", back_populates="topic")
 
     def get_years_list(self):
         try:
@@ -146,6 +170,7 @@ class Topic(Base):
             "priority_score": round(self.priority_score, 1),
             "priority_level": self.priority_level,
             "priority_breakdown": self.get_breakdown_dict(),
+            "has_notes_source": bool(self.has_notes_source),
             "questions_count": len(self.questions) if self.questions else self.frequency,
         }
 
@@ -189,6 +214,43 @@ class RepeatedQuestionGroup(Base):
         }
 
 
+class SuggestedQuestion(Base):
+    __tablename__ = "suggested_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
+    topic_name = Column(String(255), nullable=False)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(50), default="short answer")  # short answer, long answer, numerical, MCQ, definition
+    expected_marks = Column(Integer, default=5)
+    why_important = Column(Text, nullable=True)
+    difficulty = Column(String(20), default="Medium")  # Easy, Medium, Hard
+    answer_outline = Column(Text, nullable=True)
+    source = Column(String(50), default="notes")  # "notes" or "ai_estimate"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    subject = relationship("Subject", back_populates="suggested_questions")
+    topic = relationship("Topic", back_populates="suggested_questions")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "subject_id": self.subject_id,
+            "topic_id": self.topic_id,
+            "topic_name": self.topic_name,
+            "question_text": self.question_text,
+            "question_type": self.question_type,
+            "expected_marks": self.expected_marks,
+            "why_important": self.why_important,
+            "difficulty": self.difficulty,
+            "answer_outline": self.answer_outline,
+            "source": self.source,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class NoteCache(Base):
     __tablename__ = "note_caches"
 
@@ -216,6 +278,8 @@ class QuizCache(Base):
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     quiz_json = Column(Text, nullable=False)  # JSON array of 5 questions
+    difficulty = Column(String(20), default="medium", nullable=True)
+    question_count = Column(Integer, default=5, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     topic = relationship("Topic", back_populates="quizzes")
@@ -228,6 +292,25 @@ class QuizCache(Base):
         return {
             "id": self.id,
             "topic_id": self.topic_id,
+            "difficulty": self.difficulty or "medium",
+            "question_count": self.question_count or len(quiz_data),
             "quiz": quiz_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ExtractionCache(Base):
+    """Caches raw AI question extraction and classification by SHA-256 file content hash."""
+    __tablename__ = "extraction_caches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_hash = Column(String(64), unique=True, index=True, nullable=False)
+    extracted_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        try:
+            return json.loads(self.extracted_json)
+        except Exception:
+            return {}
+
