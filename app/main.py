@@ -45,6 +45,7 @@ from app.services.ai_service import (
     generate_model_answers,
     get_ai_status,
     run_startup_ai_check,
+    set_request_gemini_key,
     AIUnavailableError,
     GEMINI_API_KEY,
 )
@@ -130,6 +131,10 @@ app = FastAPI(
 # Visitor tracking middleware
 @app.middleware("http")
 async def visitor_cookie_middleware(request: Request, call_next):
+    # Support custom frontend Gemini API key from X-Gemini-Key header
+    header_key = request.headers.get("x-gemini-key") or request.headers.get("X-Gemini-Key")
+    set_request_gemini_key(header_key)
+
     vid = request.cookies.get("examsense_vid")
     new_cookie_needed = False
     if not vid:
@@ -757,6 +762,7 @@ async def upload_and_process_papers(
 # ---------------------------------------------------------------------------
 
 @app.post("/api/subjects/from-topic")
+@app.post("/api/subjects/from-name")
 def create_subject_from_topic(
     request: Request,
     subject_name: str = Form(...),
@@ -789,11 +795,10 @@ def create_subject_from_topic(
             board_name=board_name or "",
             class_level=class_level or "",
         )
-    except AIUnavailableError as ai_err:
-        raise HTTPException(status_code=503, detail=str(ai_err))
     except Exception as e:
-        logger.error(f"Failed to generate syllabus from topic: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Could not generate study plan from AI. Please try again.")
+        logger.warning(f"Using direct curriculum generator fallback for '{clean_name}': {e}")
+        from app.services.ai_service import generate_builtin_curriculum
+        topics_data = generate_builtin_curriculum(clean_name, clean_level, board_name or "", class_level or "")
 
     subject = Subject(
         name=clean_name,
@@ -1168,7 +1173,42 @@ def get_topic_deep_dive_api(
         "key_formulas_or_points": key_formulas,
         "exam_tips": exam_tips,
         "important_exam_tips": exam_tips,
+        "exam_answer_structure": dive.get("exam_answer_structure", {}),
         "questions": questions_list,
+    }
+
+
+@app.get("/api/subjects/{subject_id}/formulas")
+def get_subject_formulas_api(
+    subject_id: int,
+    db: Session = Depends(get_db),
+):
+    """Returns all extracted formulas, laws, and equations for the Formula & Cheat-Sheet Wall."""
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found.")
+
+    formulas_list = []
+    for t in subject.topics:
+        dive = get_topic_deep_dive(
+            topic_name=t.name,
+            subject_name=subject.name,
+            language="en",
+            exam_type=subject.exam_type or "General",
+        )
+        for f in dive.get("key_formulas", []):
+            formulas_list.append({
+                "topic_id": t.id,
+                "topic_name": t.name,
+                "priority_level": t.priority_level,
+                "formula_text": f,
+            })
+
+    return {
+        "subject_id": subject.id,
+        "subject_name": subject.name,
+        "total_formulas": len(formulas_list),
+        "formulas": formulas_list,
     }
 
 

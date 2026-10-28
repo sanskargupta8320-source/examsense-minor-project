@@ -31,9 +31,6 @@
 </head>
 <body class="theme-light">
 
-  <!-- Hardware-Accelerated 3D Interactive Background Canvas -->
-  <canvas id="bg3dCanvas" class="bg-3d-canvas"></canvas>
-
   <!-- ========================================================================= -->
   <!-- TOP AI UNAVAILABLE WARNING BANNER                                         -->
   <!-- ========================================================================= -->
@@ -64,6 +61,23 @@
           <select id="subjectSelect" class="subject-dropdown" onchange="onSubjectChange(this.value)">
             <option value="">Switch Subject...</option>
           </select>
+        </div>
+
+        <!-- Pomodoro Study Focus Timer -->
+        <div class="pomodoro-widget" id="pomodoroWidget" title="25-minute study focus timer">
+          <span class="pomodoro-icon">⏱️</span>
+          <span class="pomodoro-time" id="pomoTime">25:00</span>
+          <button type="button" class="pomo-btn" id="btnPomoToggle" onclick="togglePomodoro()" title="Start / Pause Study Timer">▶️</button>
+          <button type="button" class="pomo-btn" id="btnPomoReset" onclick="resetPomodoro()" title="Reset Timer">🔄</button>
+        </div>
+
+        <!-- Student XP & Level Badge -->
+        <div class="student-xp-widget" id="studentXpWidget" title="Study XP & Student Rank">
+          <div class="xp-level-badge" id="xpLevelBadge">⚡ Lvl 1: Novice</div>
+          <div class="xp-progress-bar-mini" title="XP progress towards next rank">
+            <div class="xp-fill-mini" id="xpFillMini" style="width: 0%;"></div>
+          </div>
+          <span class="xp-count-text" id="xpCountText">0 XP</span>
         </div>
 
         <!-- Sample Button (ghost style, no CS-501 badge) -->
@@ -315,6 +329,63 @@
         </div>
       </div>
 
+      <!-- Last-Night Panic Mode Urgency Bar -->
+      <div class="panic-mode-bar" id="panicModeBar">
+        <div class="panic-mode-left">
+          <span class="panic-fire-icon">🚨</span>
+          <div class="panic-title-wrap">
+            <span class="panic-main-title">Study Urgency Mode:</span>
+            <span class="panic-sub-title" id="panicSubtitleText">Standard Full Syllabus View</span>
+          </div>
+        </div>
+        <div class="panic-mode-tabs">
+          <button type="button" class="panic-btn active" id="btnModeAll" onclick="setStudyMode('all')">
+            <span>📚 All Topics (100%)</span>
+          </button>
+          <button type="button" class="panic-btn panic-highlight-12" id="btnModePanic12" onclick="setStudyMode('panic12')">
+            <span>⚡ Last 12h Survival Mode</span>
+          </button>
+          <button type="button" class="panic-btn panic-highlight-6" id="btnModePanic6" onclick="setStudyMode('panic6')">
+            <span>🔥 6h Critical Pass Only</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panic Mode Alert Banner (shown when active) -->
+      <div id="panicModeBanner" class="panic-alert-box" style="display: none;">
+        <span class="panic-alert-icon">⚡</span>
+        <div class="panic-alert-body">
+          <strong id="panicAlertTitle">Last-Night Panic Mode Activated!</strong>
+          <span id="panicAlertText">Checklist &amp; formulas filtered to High-ROI topics only. Master these to reach the safe passing zone in minimum hours!</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setStudyMode('all')">Reset to All</button>
+      </div>
+
+      <!-- Dashboard Navigation Tabs -->
+      <div class="dashboard-tabs-strip">
+        <button type="button" class="dash-nav-tab active" id="tabBtnOverview" onclick="switchDashboardTab('overview')">
+          <span class="tab-icon">📊</span>
+          <span>Syllabus &amp; Priorities</span>
+        </button>
+        <button type="button" class="dash-nav-tab" id="tabBtnChecklist" onclick="switchDashboardTab('checklist')">
+          <span class="tab-icon">🎯</span>
+          <span>Study Checklist</span>
+        </button>
+        <button type="button" class="dash-nav-tab highlight-formula-tab" id="tabBtnFormulas" onclick="switchDashboardTab('formulas')">
+          <span class="tab-icon">📐</span>
+          <span>Formula &amp; Cheat-Sheet Wall</span>
+          <span class="tab-count-pill" id="formulaCountBadge">0</span>
+        </button>
+        <button type="button" class="dash-nav-tab" id="tabBtnRepeated" onclick="switchDashboardTab('repeated')">
+          <span class="tab-icon">🔁</span>
+          <span>Repeated Questions</span>
+        </button>
+        <button type="button" class="dash-nav-tab" id="tabBtnQuestions" onclick="switchDashboardTab('questions')">
+          <span class="tab-icon">📝</span>
+          <span>Important Questions</span>
+        </button>
+      </div>
+
       <!-- Study Checklist Tracker Card -->
       <div class="checklist-card" id="checklistCard">
         <div class="checklist-header">
@@ -474,6 +545,35 @@
               <!-- Rendered via JS -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Section: Interactive Formula & Cheat-Sheet Wall Tab -->
+      <div class="section-card formula-wall-card" id="formulaWallSection">
+        <div class="section-header-row">
+          <div>
+            <h3 class="section-card-title">📐 Interactive Formula &amp; Cheat-Sheet Wall</h3>
+            <p class="section-card-subtitle">
+              Every key mathematical formula, theorem, and governing equation extracted from this subject. Rendered with KaTeX for textbook clarity.
+            </p>
+          </div>
+          <div class="table-controls">
+            <div class="search-input-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="formulaSearchInput" placeholder="Search formula, law, theorem..." oninput="filterFormulaWall()">
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-purple" onclick="copyAllFormulas()">
+              <span>📋 Copy All</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="section-help-tip mb-3">
+          💡 Interactive 3D cards with KaTeX mathematical rendering. Hover to tilt in 3D; click "Copy" to save equations directly to your clipboard.
+        </div>
+
+        <div id="formulaWallGrid" class="formula-cards-grid">
+          <!-- Rendered via JS -->
         </div>
       </div>
 
@@ -1041,6 +1141,9 @@
           </div>
         </div>
         <div class="drawer-header-actions">
+          <a class="btn btn-sm btn-outline-danger" id="btnYouTubeLecture" href="#" target="_blank" rel="noopener noreferrer" title="Watch top-rated video lecture for this topic on YouTube">
+            <span class="icon">▶️</span> <span>Watch Lecture</span>
+          </a>
           <button class="btn btn-sm btn-outline-purple" id="btnVoiceExplain" onclick="toggleVoiceExplanation()" title="Listen to topic explanation via Text-to-Speech">
             <span id="voiceIcon">🔊</span> <span id="voiceBtnText">Listen to Explanation</span>
           </button>
@@ -1095,6 +1198,36 @@
           <h4 class="drawer-section-title">💡 Examiner Checking Points &amp; Full-Marks Tips</h4>
           <div class="drawer-tips-box" id="drawerTipsBox">
             <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- How to Write in Exam for Full Marks (Exam Answer Structurer) -->
+        <div class="drawer-section">
+          <div class="drawer-section-header">
+            <h4 class="drawer-section-title">✍️ How to Write in Exam for Full Marks</h4>
+            <span class="badge-count" style="background: rgba(245, 158, 11, 0.15); color: #d97706;">Answer Blueprint</span>
+          </div>
+          <div class="drawer-answer-struct-card" id="drawerAnswerStructCard">
+            <div class="answer-step-row">
+              <span class="step-badge">Step 1 (15%)</span>
+              <div class="step-text"><strong>Precise Technical Definition:</strong> State formal 2-sentence definition with governing principle and underline keywords.</div>
+            </div>
+            <div class="answer-step-row">
+              <span class="step-badge">Step 2 (35%)</span>
+              <div class="step-text"><strong>Labeled Diagram / Schematic:</strong> Draw a neat, boxed schematic with pencil. Examiners check visual layout first.</div>
+            </div>
+            <div class="answer-step-row">
+              <span class="step-badge">Step 3 (25%)</span>
+              <div class="step-text"><strong>Governing Formulas &amp; Equations:</strong> Write primary mathematical equation defining all variables and units.</div>
+            </div>
+            <div class="answer-step-row">
+              <span class="step-badge">Step 4 (20%)</span>
+              <div class="step-text"><strong>Step-by-Step Working Mechanism:</strong> Use 4–5 numbered bullet points with bold sub-headers instead of long paragraphs.</div>
+            </div>
+            <div class="answer-step-row">
+              <span class="step-badge">Step 5 (5%)</span>
+              <div class="step-text"><strong>Practical Application &amp; Conclusion:</strong> Conclude with a real-world scientific/engineering application.</div>
+            </div>
           </div>
         </div>
 

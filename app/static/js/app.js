@@ -109,6 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initLanguage();
   checkAiHealth();
   loadSubjectsList();
+  updatePomoDisplay();
+  updateXpDisplay();
 });
 
 function initTheme() {
@@ -446,6 +448,7 @@ async function loadSubjectDashboard(subjectId) {
       renderRepeatedQuestions(data.repeated_groups);
     }
     renderImportantQuestions();
+    loadFormulaWall();
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
@@ -475,11 +478,20 @@ function renderChecklist(subjectId, topics) {
   const saved = JSON.parse(localStorage.getItem(getChecklistKey(subjectId)) || "{}");
   container.innerHTML = "";
 
+  // Apply Panic Mode filters if active
+  let displayTopics = topics;
+  if (currentStudyMode === "panic12") {
+    displayTopics = topics.filter(t => t.priority_level === "High" || t.priority_score >= 60);
+    if (displayTopics.length < 3) displayTopics = topics.slice(0, Math.min(5, topics.length));
+  } else if (currentStudyMode === "panic6") {
+    displayTopics = [...topics].sort((a, b) => b.priority_score - a.priority_score).slice(0, Math.min(5, topics.length));
+  }
+
   let completedCount = 0;
   let completedMarks = 0;
   let totalMarks = 0;
 
-  topics.forEach((topic) => {
+  displayTopics.forEach((topic) => {
     const isChecked = Boolean(saved[topic.id]);
     const topicMarks = Number(topic.total_marks) || (topic.frequency * 7) || 7;
     totalMarks += topicMarks;
@@ -503,8 +515,8 @@ function renderChecklist(subjectId, topics) {
     container.appendChild(item);
   });
 
-  const total = topics.length;
-  const pct = Math.round((completedCount / total) * 100);
+  const total = displayTopics.length;
+  const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
   if (progressText) progressText.textContent = `${completedCount} of ${total} topics completed (${pct}%)`;
   if (progressFill) progressFill.style.width = `${pct}%`;
 
@@ -512,7 +524,8 @@ function renderChecklist(subjectId, topics) {
   const marksCoveragePct = totalMarks > 0 ? Math.min(100, Math.round((completedMarks / totalMarks) * 100)) : 0;
   updateMarksCoverageMeter(marksCoveragePct);
 
-  renderMath(container);
+  // Safely format only topic label text with KaTeX
+  container.querySelectorAll(".checklist-item-text").forEach(el => renderMath(el));
 }
 
 function updateMarksCoverageMeter(pct) {
@@ -557,8 +570,13 @@ function updateMarksCoverageMeter(pct) {
 function toggleChecklistItem(subjectId, topicId) {
   const key = getChecklistKey(subjectId);
   const saved = JSON.parse(localStorage.getItem(key) || "{}");
-  saved[topicId] = !saved[topicId];
+  const wasChecked = Boolean(saved[topicId]);
+  saved[topicId] = !wasChecked;
   localStorage.setItem(key, JSON.stringify(saved));
+
+  if (!wasChecked) {
+    addStudentXp(50);
+  }
 
   if (state.currentSubjectData) {
     renderChecklist(subjectId, state.currentSubjectData.topics);
@@ -1715,7 +1733,7 @@ function escapeQuote(text) {
 }
 
 // ============================================================================
-// Live KaTeX / MathJax Equation Rendering
+// Safe KaTeX / MathJax Equation Rendering
 // ============================================================================
 
 function renderMath(container = document.body) {
@@ -1728,137 +1746,14 @@ function renderMath(container = document.body) {
           { left: "\\(", right: "\\)", display: false },
           { left: "\\[", right: "\\]", display: true }
         ],
+        ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "input", "button", "select", "option", "a"],
+        ignoredClasses: ["btn", "pomo-btn", "quiz-opt-btn", "dash-nav-tab", "panic-btn", "btn-copy-formula", "checklist-item", "search-input-box"],
         throwOnError: false,
       });
     } catch (e) {
       console.warn("KaTeX render error:", e);
     }
   }
-}
-
-// ============================================================================
-// 3D Hardware-Accelerated Interactive Background
-// ============================================================================
-
-function init3DBackground() {
-  const canvas = document.getElementById("bg3dCanvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  let width = (canvas.width = window.innerWidth);
-  let height = (canvas.height = window.innerHeight);
-
-  window.addEventListener("resize", () => {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  });
-
-  const numParticles = 65;
-  const particles = [];
-  for (let i = 0; i < numParticles; i++) {
-    particles.push({
-      x: (Math.random() - 0.5) * 1200,
-      y: (Math.random() - 0.5) * 800,
-      z: Math.random() * 800 + 100,
-      vx: (Math.random() - 0.5) * 0.35,
-      vy: (Math.random() - 0.5) * 0.35,
-      vz: (Math.random() - 0.5) * 0.25,
-      size: Math.random() * 2.5 + 1.2,
-    });
-  }
-
-  let mouseX = 0, mouseY = 0;
-  let targetMouseX = 0, targetMouseY = 0;
-
-  window.addEventListener("mousemove", (e) => {
-    targetMouseX = (e.clientX - width / 2) * 0.25;
-    targetMouseY = (e.clientY - height / 2) * 0.25;
-  });
-
-  function draw() {
-    mouseX += (targetMouseX - mouseX) * 0.05;
-    mouseY += (targetMouseY - mouseY) * 0.05;
-
-    ctx.clearRect(0, 0, width, height);
-
-    const isDark = document.body.classList.contains("theme-dark");
-    const focalLength = 400;
-
-    const projected = [];
-
-    for (let i = 0; i < numParticles; i++) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.z += p.vz;
-
-      if (p.x < -700) p.x = 700;
-      if (p.x > 700) p.x = -700;
-      if (p.y < -500) p.y = 500;
-      if (p.y > 500) p.y = -500;
-      if (p.z < 50) p.z = 900;
-      if (p.z > 900) p.z = 50;
-
-      const cx = p.x - mouseX;
-      const cy = p.y - mouseY;
-      const cz = p.z;
-
-      const scale = focalLength / (focalLength + cz);
-      const px = width / 2 + cx * scale;
-      const py = height / 2 + cy * scale;
-
-      projected.push({ x: px, y: py, scale, z: cz });
-    }
-
-    // Connect close particles with subtle 3D glowing lines
-    for (let i = 0; i < numParticles; i++) {
-      for (let j = i + 1; j < numParticles; j++) {
-        const p1 = projected[i];
-        const p2 = projected[j];
-        const dx = p1.x - p2.x;
-        const dy = p1.y - p2.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < 110) {
-          const alpha = (1 - dist / 110) * 0.18 * Math.min(p1.scale, p2.scale);
-          ctx.beginPath();
-          ctx.strokeStyle = isDark
-            ? `rgba(129, 140, 248, ${alpha * 1.5})`
-            : `rgba(99, 102, 241, ${alpha})`;
-          ctx.lineWidth = 1;
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Draw 3D nodes
-    for (let i = 0; i < numParticles; i++) {
-      const p = projected[i];
-      const r = particles[i].size * p.scale;
-      const alpha = Math.min(1, Math.max(0.15, p.scale * 0.85));
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.5, r), 0, Math.PI * 2);
-      ctx.fillStyle = isDark
-        ? `rgba(165, 180, 252, ${alpha * 0.9})`
-        : `rgba(79, 70, 229, ${alpha * 0.6})`;
-      ctx.fill();
-    }
-
-    requestAnimationFrame(draw);
-  }
-
-  requestAnimationFrame(draw);
-}
-
-// Start 3D background immediately
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init3DBackground);
-} else {
-  init3DBackground();
 }
 
 // ============================================================================
@@ -1925,6 +1820,43 @@ async function openTopicDrawer(topicId) {
     updateVoiceButton(false);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
+    // YouTube Watch Lecture Link
+    const ytBtn = document.getElementById("btnYouTubeLecture");
+    if (ytBtn) {
+      const subjName = state.currentSubjectData?.subject?.name || "";
+      const examLvl = state.currentSubjectData?.subject?.exam_type || "";
+      const q = `${data.topic_name} ${subjName} ${examLvl} lecture exam preparation`;
+      ytBtn.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(q.trim())}`;
+    }
+
+    // Exam Answer Structurer Card
+    const structCard = document.getElementById("drawerAnswerStructCard");
+    if (structCard) {
+      const s = data.exam_answer_structure || {};
+      structCard.innerHTML = `
+        <div class="answer-step-row">
+          <span class="step-badge">Step 1 (15%)</span>
+          <div class="step-text"><strong>Precise Technical Definition:</strong> ${escapeHtml(s.step_1_intro || `State formal 2-sentence definition of ${data.topic_name} with keywords underlined.`)}</div>
+        </div>
+        <div class="answer-step-row">
+          <span class="step-badge">Step 2 (35%)</span>
+          <div class="step-text"><strong>Labeled Diagram / Schematic:</strong> ${escapeHtml(s.step_2_diagram || `Draw neat, boxed schematic/diagram illustrating ${data.topic_name} principles.`)}</div>
+        </div>
+        <div class="answer-step-row">
+          <span class="step-badge">Step 3 (25%)</span>
+          <div class="step-text"><strong>Governing Formulas & Equations:</strong> ${escapeHtml(s.step_3_formula || `State primary equations and define every variable with proper SI units.`)}</div>
+        </div>
+        <div class="answer-step-row">
+          <span class="step-badge">Step 4 (20%)</span>
+          <div class="step-text"><strong>Step-by-Step Working Mechanism:</strong> ${escapeHtml(s.step_4_working || `Explain working mechanism in 4–5 bullet points with clear sub-headings.`)}</div>
+        </div>
+        <div class="answer-step-row">
+          <span class="step-badge">Step 5 (5%)</span>
+          <div class="step-text"><strong>Practical Application & Conclusion:</strong> ${escapeHtml(s.step_5_conclusion || `Conclude with modern real-world engineering or scientific applications.`)}</div>
+        </div>
+      `;
+    }
+
     // Render PYQs
     renderDrawerQuestions(data.questions || []);
 
@@ -1934,8 +1866,10 @@ async function openTopicDrawer(topicId) {
     // Load Quick 3-Question Self-Test
     loadDrawerQuickQuiz(topicId, data.topic_name);
 
-    // KaTeX Math Rendering
-    renderMath(modal);
+    // Safe KaTeX Math Rendering on content elements only
+    if (conceptBox) renderMath(conceptBox);
+    if (formulasBox) renderMath(formulasBox);
+    if (questionsList) renderMath(questionsList);
 
   } catch (err) {
     console.error("Error opening topic drawer:", err);
@@ -2132,6 +2066,9 @@ function markCurrentTopicDoneFromDrawer() {
   const topicId = currentDrawerTopicData.topic_id;
   const key = getChecklistKey(state.currentSubjectId);
   const saved = JSON.parse(localStorage.getItem(key) || "{}");
+  if (!saved[topicId]) {
+    addStudentXp(50);
+  }
   saved[topicId] = true;
   localStorage.setItem(key, JSON.stringify(saved));
 
@@ -2306,4 +2243,339 @@ function exportRichMathJaxTextbookPdf() {
 
   renderMath(container);
   window.print();
+}
+
+// ============================================================================
+// Built-in Study Pomodoro Timer (25-Min Focus Sprint)
+// ============================================================================
+
+let pomoSecondsLeft = 25 * 60;
+let isPomoRunning = false;
+let pomoInterval = null;
+
+function updatePomoDisplay() {
+  const el = document.getElementById("pomoTime");
+  const btn = document.getElementById("btnPomoToggle");
+  if (!el) return;
+  const mins = Math.floor(pomoSecondsLeft / 60);
+  const secs = pomoSecondsLeft % 60;
+  el.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  if (btn) btn.textContent = isPomoRunning ? "⏸" : "▶";
+}
+
+function togglePomodoro() {
+  if (isPomoRunning) {
+    clearInterval(pomoInterval);
+    isPomoRunning = false;
+    updatePomoDisplay();
+  } else {
+    isPomoRunning = true;
+    updatePomoDisplay();
+    pomoInterval = setInterval(() => {
+      if (pomoSecondsLeft > 0) {
+        pomoSecondsLeft--;
+        updatePomoDisplay();
+      } else {
+        clearInterval(pomoInterval);
+        isPomoRunning = false;
+        pomoSecondsLeft = 25 * 60;
+        updatePomoDisplay();
+        addStudentXp(100);
+        showToast("🎯 25-Minute Focus Sprint Complete! +100 XP Earned! Take a 5-min break.", "success");
+        if (window.confetti) confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
+      }
+    }, 1000);
+  }
+}
+
+function resetPomodoro() {
+  clearInterval(pomoInterval);
+  isPomoRunning = false;
+  pomoSecondsLeft = 25 * 60;
+  updatePomoDisplay();
+}
+
+// ============================================================================
+// Student XP & Level Rank System (Gamified Progress)
+// ============================================================================
+
+function getStudentXp() {
+  return parseInt(localStorage.getItem("examsense_student_xp") || "0", 10);
+}
+
+function getStudentRank(xp) {
+  if (xp >= 1500) return { level: 5, title: "🏆 Exam Master", nextXp: 2000, base: 1500 };
+  if (xp >= 900) return { level: 4, title: "🥇 Distinction Scholar", nextXp: 1500, base: 900 };
+  if (xp >= 500) return { level: 3, title: "🥈 First Class Pro", nextXp: 900, base: 500 };
+  if (xp >= 200) return { level: 2, title: "🥉 Revision Cadet", nextXp: 500, base: 200 };
+  return { level: 1, title: "🌱 Aspirant", nextXp: 200, base: 0 };
+}
+
+function updateXpDisplay() {
+  const xp = getStudentXp();
+  const rank = getStudentRank(xp);
+  const badgeEl = document.getElementById("xpLevelBadge");
+  const countEl = document.getElementById("xpCountText");
+  const fillEl = document.getElementById("xpFillMini");
+
+  if (badgeEl) badgeEl.textContent = rank.title;
+  if (countEl) countEl.textContent = `${xp} XP`;
+  if (fillEl) {
+    const range = rank.nextXp - rank.base;
+    const progress = Math.min(100, Math.max(5, Math.round(((xp - rank.base) / range) * 100)));
+    fillEl.style.width = `${progress}%`;
+  }
+}
+
+function addStudentXp(points = 50) {
+  const currentXp = getStudentXp();
+  const oldRank = getStudentRank(currentXp);
+  const newXp = currentXp + points;
+  localStorage.setItem("examsense_student_xp", newXp.toString());
+  updateXpDisplay();
+
+  const newRank = getStudentRank(newXp);
+  if (newRank.level > oldRank.level) {
+    showToast(`🎉 Level Up! You achieved rank: ${newRank.title}! Keep going!`, "success");
+    if (window.confetti) confetti({ particleCount: 80, spread: 100, origin: { y: 0.5 } });
+  }
+}
+
+// ============================================================================
+// Card Hover Interactions (Clean & Lightweight)
+// ============================================================================
+
+function init3dCardTilt() {
+  // 3D tilt removed for lightweight, zero-lag performance and stable stacking contexts
+}
+
+// ============================================================================
+// Last-Night Panic Mode Urgency Filter & Coverage
+// ============================================================================
+
+let currentStudyMode = "all"; // 'all' | 'panic12' | 'panic6'
+
+function setStudyMode(mode) {
+  currentStudyMode = mode;
+
+  const btnAll = document.getElementById("btnModeAll");
+  const btn12 = document.getElementById("btnModePanic12");
+  const btn6 = document.getElementById("btnModePanic6");
+  const banner = document.getElementById("panicModeBanner");
+  const alertTitle = document.getElementById("panicAlertTitle");
+  const alertText = document.getElementById("panicAlertText");
+  const subtitle = document.getElementById("panicSubtitleText");
+
+  if (btnAll) btnAll.classList.toggle("active", mode === "all");
+  if (btn12) btn12.classList.toggle("active", mode === "panic12");
+  if (btn6) btn6.classList.toggle("active", mode === "panic6");
+
+  if (mode === "all") {
+    if (banner) banner.style.display = "none";
+    if (subtitle) subtitle.textContent = "Standard Full Syllabus View";
+  } else if (mode === "panic12") {
+    if (banner) banner.style.display = "flex";
+    if (alertTitle) alertTitle.textContent = "⚡ Last 12h Survival Mode Activated!";
+    if (alertText) alertText.textContent = "Checklist & topics filtered to High-ROI & repeating concepts. Master these to secure 60%+ passing marks in minimum hours!";
+    if (subtitle) subtitle.textContent = "Last 12 Hours Priority Focus";
+    showToast("⚡ Last 12h Survival Mode: Focused on top-scoring topics!", "info");
+  } else if (mode === "panic6") {
+    if (banner) banner.style.display = "flex";
+    if (alertTitle) alertTitle.textContent = "🔥 6h Critical Pass Mode Activated!";
+    if (alertText) alertText.textContent = "Maximum urgency filter: Showing top 5 highest-frequency topics to reach passing marks immediately!";
+    if (subtitle) subtitle.textContent = "6h Emergency Critical Pass View";
+    showToast("🔥 6h Critical Pass Mode: Highest ROI topics only!", "warning");
+  }
+
+  if (state.currentSubjectData && state.currentSubjectId) {
+    const allTopics = state.currentSubjectData.topics || [];
+    let filteredTopics = allTopics;
+
+    if (mode === "panic12") {
+      filteredTopics = allTopics.filter(t => t.priority_level === "High" || t.priority_score >= 60);
+      if (filteredTopics.length < 3) filteredTopics = allTopics.slice(0, Math.min(5, allTopics.length));
+    } else if (mode === "panic6") {
+      filteredTopics = [...allTopics].sort((a, b) => b.priority_score - a.priority_score).slice(0, Math.min(5, allTopics.length));
+    }
+
+    renderChecklist(state.currentSubjectId, filteredTopics);
+    renderTopicsTable(filteredTopics);
+  }
+}
+
+// ============================================================================
+// Dashboard Navigation Tabs Controller
+// ============================================================================
+
+let activeDashboardTab = "overview";
+
+function switchDashboardTab(tabName) {
+  activeDashboardTab = tabName;
+
+  const tabs = [
+    { name: "overview", btnId: "tabBtnOverview" },
+    { name: "checklist", btnId: "tabBtnChecklist" },
+    { name: "formulas", btnId: "tabBtnFormulas" },
+    { name: "repeated", btnId: "tabBtnRepeated" },
+    { name: "questions", btnId: "tabBtnQuestions" },
+  ];
+
+  tabs.forEach(t => {
+    const btn = document.getElementById(t.btnId);
+    if (btn) btn.classList.toggle("active", t.name === tabName);
+  });
+
+  const overviewSections = ["analyticsSection", "topicsSection", "checklistCard", "repeatedQuestionsSection", "questionsSection"];
+  const formulaWall = document.getElementById("formulaWallSection");
+
+  if (tabName === "overview") {
+    overviewSections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "";
+    });
+    if (formulaWall) formulaWall.style.display = "none";
+  } else if (tabName === "formulas") {
+    overviewSections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+    if (formulaWall) formulaWall.style.display = "block";
+    loadFormulaWall();
+  } else if (tabName === "checklist") {
+    overviewSections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (id === "checklistCard") ? "" : "none";
+    });
+    if (formulaWall) formulaWall.style.display = "none";
+  } else if (tabName === "repeated") {
+    overviewSections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (id === "repeatedQuestionsSection") ? "" : "none";
+    });
+    if (formulaWall) formulaWall.style.display = "none";
+  } else if (tabName === "questions") {
+    overviewSections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (id === "questionsSection") ? "" : "none";
+    });
+    if (formulaWall) formulaWall.style.display = "none";
+  }
+}
+
+// ============================================================================
+// Interactive Formula & Cheat-Sheet Wall Controller
+// ============================================================================
+
+let loadedFormulas = [];
+let loadedFormulasSubjectId = null;
+
+async function loadFormulaWall() {
+  if (!state.currentSubjectId) return;
+  const grid = document.getElementById("formulaWallGrid");
+  const countBadge = document.getElementById("formulaCountBadge");
+  if (!grid) return;
+
+  if (loadedFormulasSubjectId === state.currentSubjectId && loadedFormulas.length > 0) {
+    renderFormulaCards(loadedFormulas);
+    return;
+  }
+
+  grid.innerHTML = `<div class="progress-box"><div class="spinner"></div><div class="progress-text">Extracting formulas & equations with KaTeX...</div></div>`;
+
+  try {
+    const res = await fetch(`/api/subjects/${state.currentSubjectId}/formulas`);
+    if (!res.ok) throw new Error("Could not fetch formulas");
+    const data = await res.json();
+    loadedFormulas = data.formulas || [];
+    loadedFormulasSubjectId = state.currentSubjectId;
+
+    if (countBadge) countBadge.textContent = loadedFormulas.length;
+    renderFormulaCards(loadedFormulas);
+  } catch (err) {
+    console.error("Formula wall error:", err);
+    grid.innerHTML = `<div class="text-muted" style="padding: 20px;">Formulas will appear here as you analyze past papers or topics.</div>`;
+  }
+}
+
+function renderFormulaCards(formulas) {
+  const grid = document.getElementById("formulaWallGrid");
+  if (!grid) return;
+
+  if (!formulas || formulas.length === 0) {
+    grid.innerHTML = `<div class="text-muted" style="padding: 24px; text-align: center; grid-column: 1 / -1;">No mathematical formulas found for this search filter.</div>`;
+    return;
+  }
+
+  grid.innerHTML = "";
+  formulas.forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "formula-card-3d";
+    const prio = (item.priority_level || "High").toLowerCase();
+    const safeText = escapeHtml(item.formula_text);
+    const escapedFormula = item.formula_text.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+    card.innerHTML = `
+      <div class="formula-card-top">
+        <span class="formula-topic-tag" onclick="openTopicDrawer(${item.topic_id})" style="cursor: pointer;" title="Explore topic">${escapeHtml(item.topic_name)}</span>
+        <button type="button" class="btn-copy-formula" onclick="copyFormulaCard('${escapedFormula}', this)" title="Copy formula to clipboard">📋 Copy</button>
+      </div>
+      <div class="formula-math-display">${safeText}</div>
+      <div class="formula-card-footer">
+        <span class="tier-dot dot-${prio}"></span>
+        <span class="formula-priority-label">${item.priority_level || "High"} Priority</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Safely format only formula display elements without touching buttons
+  grid.querySelectorAll(".formula-math-display").forEach(el => renderMath(el));
+}
+
+function filterFormulaWall() {
+  const searchInput = document.getElementById("formulaSearchInput");
+  if (!searchInput) return;
+  const q = searchInput.value.toLowerCase().trim();
+  if (!q) {
+    renderFormulaCards(loadedFormulas);
+    return;
+  }
+  const filtered = loadedFormulas.filter(f => 
+    (f.formula_text && f.formula_text.toLowerCase().includes(q)) ||
+    (f.topic_name && f.topic_name.toLowerCase().includes(q))
+  );
+  renderFormulaCards(filtered);
+}
+
+function copyFormulaCard(text, btn) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = "✓ Copied!";
+      btn.style.borderColor = "#10b981";
+      btn.style.color = "#10b981";
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.style.borderColor = "";
+        btn.style.color = "";
+      }, 1800);
+    }
+    showToast("Formula copied to clipboard! 📋", "success");
+  }).catch(() => {
+    showToast("Unable to copy to clipboard", "warning");
+  });
+}
+
+function copyAllFormulas() {
+  if (!loadedFormulas || loadedFormulas.length === 0) {
+    showToast("No formulas loaded to copy.", "warning");
+    return;
+  }
+  const combined = loadedFormulas.map((f, i) => `${i + 1}. [${f.topic_name}] ${f.formula_text}`).join("\n\n");
+  navigator.clipboard.writeText(combined).then(() => {
+    showToast(`Copied all ${loadedFormulas.length} formulas to clipboard! 📋`, "success");
+  }).catch(() => {
+    showToast("Unable to copy formulas", "warning");
+  });
 }

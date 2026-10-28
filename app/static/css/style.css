@@ -89,6 +89,25 @@ body {
   overflow-x: hidden;
 }
 
+/* Zero-lag, Pure CSS Subtle Radial Mesh Gradient Background */
+body.theme-light {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.05) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+body.theme-dark {
+  background-color: #0b0f19;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.10) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
@@ -3091,6 +3110,422 @@ body.theme-dark .badge-explore {
   font-size: 12px;
   line-height: 1.4;
   animation: fadeIn 0.2s ease;
+}
+
+/* ==========================================================================
+   Clean, Lightweight Card Shadows (Zero-Lag, No 3D Tilt or Layout Stacking)
+   ========================================================================== */
+.bg-3d-canvas {
+  display: none !important;
+  pointer-events: none !important;
+  z-index: -999 !important;
+}
+
+.kpi-card,
+.chart-card,
+.section-card,
+.checklist-card,
+.formula-card-3d,
+.glass-card-3d {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+body.theme-dark .kpi-card,
+body.theme-dark .chart-card,
+body.theme-dark .section-card,
+body.theme-dark .checklist-card,
+body.theme-dark .formula-card-3d,
+body.theme-dark .glass-card-3d {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.formula-card-3d:hover,
+.kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
+   Header: Pomodoro Study Focus Timer & Student XP
+   ========================================================================== */
+.pomodoro-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.pomodoro-time {
+  font-family: var(--font-heading);
+  color: var(--primary);
+  min-width: 44px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.pomo-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: transform 0.15s ease;
+}
+
+.pomo-btn:hover {
+  transform: scale(1.2);
+}
+
+.student-xp-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.xp-level-badge {
+  font-weight: 800;
+}
+
+.xp-progress-bar-mini {
+  width: 50px;
+  height: 6px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.xp-fill-mini {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #10b981 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.xp-count-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Last-Night Panic Mode Bar & Urgency Filter
+   ========================================================================== */
+.panic-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.panic-mode-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panic-fire-icon {
+  font-size: 22px;
+  animation: pulseFire 1.8s infinite;
+}
+
+@keyframes pulseFire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.panic-main-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: #b45309;
+}
+
+body.theme-dark .panic-main-title {
+  color: #f59e0b;
+}
+
+.panic-sub-title {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+}
+
+.panic-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.panic-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.panic-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+
+.panic-btn.panic-highlight-12.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #d97706;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+
+.panic-btn.panic-highlight-6.active {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.panic-alert-box {
+  background: linear-gradient(135deg, #fef2f2 0%, #fffbeb 100%);
+  border: 1px solid #fecaca;
+  border-left: 5px solid #ef4444;
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+
+body.theme-dark .panic-alert-box {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+/* ==========================================================================
+   Dashboard Navigation Tabs
+   ========================================================================== */
+.dashboard-tabs-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.dash-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.dash-nav-tab:hover {
+  color: var(--primary);
+  background: var(--border-subtle);
+}
+
+.dash-nav-tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+
+.dash-nav-tab.active .tab-count-pill {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tab-count-pill {
+  padding: 2px 7px;
+  background: var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ==========================================================================
+   Interactive 3D Formula & Cheat-Sheet Wall
+   ========================================================================== */
+.formula-wall-card {
+  margin-bottom: 24px;
+}
+
+.formula-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.formula-card-3d {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+
+.formula-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.formula-topic-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.theme-dark .formula-topic-tag {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.formula-priority-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.formula-math-display {
+  font-family: 'KaTeX_Main', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  text-align: center;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+.formula-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-copy-formula {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-copy-formula:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* ==========================================================================
+   Exam Answer Structurer Blueprint (How to Write for Full Marks)
+   ========================================================================== */
+.drawer-answer-struct-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.step-badge {
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.step-text {
+  color: var(--text-primary);
 }
 
 

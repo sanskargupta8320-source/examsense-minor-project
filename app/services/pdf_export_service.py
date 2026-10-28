@@ -953,6 +953,54 @@ def generate_study_plan_pdf(
             story.append(sol_table)
             story.append(Spacer(1, 10))
 
+        # -------------------------------------------------------------------
+        # EXAMINER GUIDE: How to Structure Your Answers for 100% Marks
+        # -------------------------------------------------------------------
+        story.append(Spacer(1, 6))
+        story.append(Paragraph("<b>✍️ Examiner Strategy: How to Structure Your Answers for 100% Marks</b>", sub_heading))
+        guide_table_content = [
+            [
+                Paragraph("<b>Answer Component</b>", cell_bold),
+                Paragraph("<b>Marks %</b>", cell_bold),
+                Paragraph("<b>What the Examiner Awards Marks For</b>", cell_bold),
+            ],
+            [
+                Paragraph("<b>1. Precise Definition & Axiom</b>", cell_bold),
+                Paragraph("15%", cell_style),
+                Paragraph("Start with a clean 2-sentence formal definition and governing principle. Underline technical keywords.", cell_style),
+            ],
+            [
+                Paragraph("<b>2. Labeled Diagram / Schematic</b>", cell_bold),
+                Paragraph("35%", cell_style),
+                Paragraph("Draw a centered, pencil-boxed diagram or flowchart with clear labels. Examiners check diagrams first!", cell_style),
+            ],
+            [
+                Paragraph("<b>3. Primary Formula & Formulations</b>", cell_bold),
+                Paragraph("25%", cell_style),
+                Paragraph("State the governing equation, defining every variable and its SI unit. Specify boundary assumptions.", cell_style),
+            ],
+            [
+                Paragraph("<b>4. Step-by-Step Mechanism / Steps</b>", cell_bold),
+                Paragraph("20%", cell_style),
+                Paragraph("Use numbered bullet points with bold sub-headers instead of continuous text paragraphs.", cell_style),
+            ],
+            [
+                Paragraph("<b>5. Real-World Applications & Summary</b>", cell_bold),
+                Paragraph("5%", cell_style),
+                Paragraph("Conclude with an industrial or practical engineering application demonstrating deep conceptual grasp.", cell_style),
+            ],
+        ]
+        guide_table = Table(guide_table_content, colWidths=[160, 60, 300])
+        guide_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EEF2FF")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#C7D2FE")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(guide_table)
+        story.append(Spacer(1, 10))
+
     # -----------------------------------------------------------------------
     # SECTION 3: Complete Topic-Wise Question Bank (100% UNTRUNCATED)
     # -----------------------------------------------------------------------

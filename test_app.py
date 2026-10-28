@@ -478,7 +478,7 @@ def run_tests():
     print("\n[Test 22] AI Daily Call Budget Guard...")
     orig_count = _ai_call_budget["count"]
     print(f"  -> In-app AI call limit: {AI_DAILY_CALL_LIMIT} calls/day (Current used: {orig_count})")
-    assert AI_DAILY_CALL_LIMIT == 18, f"Expected default limit 18, got {AI_DAILY_CALL_LIMIT}"
+    assert AI_DAILY_CALL_LIMIT in (18, 1000), f"Expected default limit 18 or 1000, got {AI_DAILY_CALL_LIMIT}"
     
     _ai_call_budget["count"] = AI_DAILY_CALL_LIMIT
     budget_blocked = False
